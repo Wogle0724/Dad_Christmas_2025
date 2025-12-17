@@ -12,6 +12,9 @@ export default function StickyNotes() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newNoteContent, setNewNoteContent] = useState('');
   const [newNoteColor, setNewNoteColor] = useState<typeof COLORS[number]>('yellow');
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editingContent, setEditingContent] = useState('');
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchNotes();
@@ -80,9 +83,42 @@ export default function StickyNotes() {
   };
 
   const handleDeleteNote = (id: string) => {
+    // If this is the first click, show confirmation (fill in red)
+    if (deleteConfirmId !== id) {
+      setDeleteConfirmId(id);
+      return;
+    }
+    
+    // Second click - actually delete
     const updatedNotes = notes.filter((note) => note.id !== id);
     setNotes(updatedNotes);
     saveNotes(updatedNotes);
+    setDeleteConfirmId(null);
+  };
+
+  const handleMouseLeaveNote = () => {
+    // Reset delete confirmation when mouse leaves note
+    setDeleteConfirmId(null);
+  };
+
+  const handleDoubleClickNote = (note: Note) => {
+    setEditingNoteId(note.id);
+    setEditingContent(note.content);
+  };
+
+  const handleSaveEdit = (id: string) => {
+    const updatedNotes = notes.map((note) =>
+      note.id === id ? { ...note, content: editingContent } : note
+    );
+    setNotes(updatedNotes);
+    saveNotes(updatedNotes);
+    setEditingNoteId(null);
+    setEditingContent('');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingNoteId(null);
+    setEditingContent('');
   };
 
   if (loading) {
@@ -113,6 +149,12 @@ export default function StickyNotes() {
           <textarea
             value={newNoteContent}
             onChange={(e) => setNewNoteContent(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                setShowAddForm(false);
+                setNewNoteContent('');
+              }
+            }}
             placeholder="Write your note here..."
             rows={4}
             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none mb-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500"
@@ -158,24 +200,73 @@ export default function StickyNotes() {
             <p>No notes yet. Click &quot;Add Note&quot; to create one!</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 auto-rows-max">
             {notes.map((note) => (
               <div
                 key={note.id}
-                className={`sticky-note sticky-note-${note.color} p-4 rounded-lg relative group dark:opacity-90`}
+                className={`sticky-note sticky-note-${note.color} p-4 rounded-lg relative group dark:opacity-90 ${
+                  editingNoteId === note.id ? 'ring-2 ring-indigo-500' : ''
+                }`}
+                onDoubleClick={() => handleDoubleClickNote(note)}
+                onMouseLeave={handleMouseLeaveNote}
               >
                 <button
                   onClick={() => handleDeleteNote(note.id)}
-                  className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-red-500 hover:bg-red-600 text-white rounded-full p-1"
+                  className={`absolute top-2 right-2 transition-opacity rounded-full p-1 ${
+                    deleteConfirmId === note.id
+                      ? 'opacity-100 text-red-500'
+                      : 'opacity-0 group-hover:opacity-100 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
+                  }`}
+                  title={deleteConfirmId === note.id ? 'Click again to confirm delete' : 'Delete note'}
                 >
-                  <X className="w-4 h-4" />
+                  {deleteConfirmId === note.id ? (
+                    <X className="w-4 h-4 stroke-current stroke-2" />
+                  ) : (
+                    <X className="w-4 h-4 stroke-current" />
+                  )}
                 </button>
-                <p className="text-gray-800 dark:text-gray-900 whitespace-pre-wrap break-words pr-6">
-                  {note.content}
-                </p>
-                <p className="text-xs text-gray-600 dark:text-gray-700 mt-2 opacity-70">
-                  {new Date(note.created_at).toLocaleDateString()}
-                </p>
+                
+                {editingNoteId === note.id ? (
+                  <div className="space-y-2">
+                    <textarea
+                      value={editingContent}
+                      onChange={(e) => setEditingContent(e.target.value)}
+                      className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500"
+                      rows={4}
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === 'Escape') {
+                          handleCancelEdit();
+                        } else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                          handleSaveEdit(note.id);
+                        }
+                      }}
+                    />
+                    <div className="flex gap-2 justify-end">
+                      <button
+                        onClick={handleCancelEdit}
+                        className="px-3 py-1 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => handleSaveEdit(note.id)}
+                        className="px-3 py-1 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded transition-colors"
+                      >
+                        Save
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-gray-800 dark:text-gray-900 whitespace-pre-wrap break-words pr-6">
+                      {note.content}
+                    </p>
+                    <p className="text-xs text-gray-600 dark:text-gray-700 mt-2 opacity-70">
+                      {new Date(note.created_at).toLocaleDateString()}
+                    </p>
+                  </>
+                )}
               </div>
             ))}
           </div>

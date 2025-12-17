@@ -58,14 +58,33 @@ export default function SportsWidget() {
   const fetchTeamData = useCallback(async (teamId: string, sport: string, league: string) => {
     try {
       // Fetch news
-      const newsResponse = await fetch(`/api/espn-news?sport=${sport}&league=${league}&teamId=${teamId}&limit=5`);
+      console.log(`[SportsWidget] Fetching news for teamId=${teamId}, sport=${sport}, league=${league}`);
+      const newsResponse = await fetch(`/api/espn-news?sport=${sport}&league=${league}&teamId=${teamId}&limit=3`);
       const newsData = await newsResponse.json();
-      const news: NewsItem[] = (newsData.articles || []).map((article: any) => ({
-        title: article.title,
-        url: article.url,
-        publishedAt: article.publishedAt,
-        image: article.image,
-      }));
+      console.log(`[SportsWidget] News API response:`, {
+        hasArticles: !!newsData.articles,
+        articleCount: newsData.articles?.length || 0,
+        error: newsData.error,
+        rawResponse: newsData,
+      });
+      
+      const news: NewsItem[] = (newsData.articles || []).map((article: any) => {
+        console.log(`[SportsWidget] Processing article:`, {
+          title: article.title,
+          url: article.url,
+          publishedAt: article.publishedAt,
+          image: article.image,
+          fullArticle: article,
+        });
+        return {
+          title: article.title,
+          url: article.url,
+          publishedAt: article.publishedAt,
+          image: article.image,
+        };
+      });
+      
+      console.log(`[SportsWidget] Final news array:`, news);
 
       // Fetch team info and schedule
       const teamInfoResponse = await fetch(`/api/espn-team-info?sport=${sport}&league=${league}&teamId=${teamId}`);

@@ -1,6 +1,6 @@
 'use client';
 
-import { Moon, Sun, Cloud, Trophy, StickyNote, Heart } from 'lucide-react';
+import { Moon, Sun, Cloud, Trophy, StickyNote, Heart, Music } from 'lucide-react';
 import { useDataCache } from '@/lib/DataCacheContext';
 
 export default function AppearanceSettingsContent() {
@@ -13,15 +13,43 @@ export default function AppearanceSettingsContent() {
     });
   };
 
-  const toggleWidget = (widget: 'showWeather' | 'showSports' | 'showNotes' | 'showMotivation') => {
+  const toggleWidget = (widget: 'showWeather' | 'showSports' | 'showNotes' | 'showMotivation' | 'showConcerts') => {
     setAppearancePreferences({
       ...appearancePreferences,
       [widget]: !appearancePreferences[widget],
     });
   };
 
+  const handleDashboardNameChange = (name: string) => {
+    setAppearancePreferences({
+      ...appearancePreferences,
+      dashboardName: name,
+    });
+  };
+
   return (
     <div className="space-y-6 max-w-2xl">
+      {/* Dashboard Name */}
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">Dashboard Name</h3>
+        <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+          <label htmlFor="dashboardName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Custom Dashboard Title
+          </label>
+          <input
+            type="text"
+            id="dashboardName"
+            value={appearancePreferences.dashboardName}
+            onChange={(e) => handleDashboardNameChange(e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 placeholder:text-gray-400 dark:placeholder:text-gray-500"
+            placeholder="Dad Dashboard"
+          />
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+            This name will appear at the top of your dashboard
+          </p>
+        </div>
+      </div>
+
       {/* Dark Mode */}
       <div className="space-y-4">
         <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">Theme</h3>
@@ -87,6 +115,25 @@ export default function AppearanceSettingsContent() {
                 type="checkbox"
                 checked={appearancePreferences.showSports}
                 onChange={() => toggleWidget('showSports')}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 dark:peer-focus:ring-indigo-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-indigo-600"></div>
+            </label>
+          </div>
+
+          <div className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+            <div className="flex items-center gap-3">
+              <Music className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+              <div>
+                <div className="font-medium text-gray-800 dark:text-gray-200">Concerts Widget</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400">Show upcoming concerts</div>
+              </div>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={appearancePreferences.showConcerts}
+                onChange={() => toggleWidget('showConcerts')}
                 className="sr-only peer"
               />
               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 dark:peer-focus:ring-indigo-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-indigo-600"></div>

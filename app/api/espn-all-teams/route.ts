@@ -46,19 +46,6 @@ export async function GET() {
               type, // 'pro' or 'college'
             };
             
-            // Log colors from ESPN API
-            if (teamData.color || teamData.alternateColor) {
-              console.log(`[ESPN API] Team: ${teamData.name} (${teamData.id})`, {
-                color: teamData.color,
-                alternateColor: teamData.alternateColor,
-                rawTeamData: {
-                  color: team.team?.color,
-                  alternateColor: team.team?.alternateColor,
-                  fullTeam: team.team
-                }
-              });
-            }
-            
             return teamData;
           }) || [];
 

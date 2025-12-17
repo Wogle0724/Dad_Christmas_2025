@@ -1,18 +1,19 @@
 'use client';
 
-import { useState } from 'react';
-import { X, Lock, Trophy, Palette } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, Lock, Trophy, Palette, Music } from 'lucide-react';
 import { verifyPassword, changePassword } from '@/lib/auth';
 import { useDataCache } from '@/lib/DataCacheContext';
 import SportsTeamSettingsContent from './SportsTeamSettingsContent';
 import AppearanceSettingsContent from './AppearanceSettingsContent';
+import ConcertsSettingsContent from './ConcertsSettingsContent';
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-type Tab = 'password' | 'sports' | 'appearance';
+type Tab = 'password' | 'sports' | 'appearance' | 'concerts';
 
 export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [activeTab, setActiveTab] = useState<Tab>('password');
@@ -76,6 +77,20 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     }
   };
 
+  // Handle Escape key to close modal
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   return (
@@ -127,6 +142,17 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             >
               <Palette className="w-4 h-4" />
               Appearance
+            </button>
+            <button
+              onClick={() => setActiveTab('concerts')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors ${
+                activeTab === 'concerts'
+                  ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
+                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
+              }`}
+            >
+              <Music className="w-4 h-4" />
+              Concerts
             </button>
           </nav>
         </div>
@@ -224,8 +250,10 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 setTeamPreferences({ ...teamPreferences, favoriteTeams: teams });
               }}
             />
-          ) : (
+          ) : activeTab === 'appearance' ? (
             <AppearanceSettingsContent />
+          ) : (
+            <ConcertsSettingsContent />
           )}
         </div>
       </div>

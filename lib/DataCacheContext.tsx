@@ -69,6 +69,19 @@ interface AppearancePreferences {
   showSports: boolean;
   showNotes: boolean;
   showMotivation: boolean;
+  showConcerts: boolean;
+  dashboardName: string;
+}
+
+interface ConcertPreferences {
+  favoriteArtists: string[];
+  favoriteGenres: string[];
+  location: {
+    city?: string;
+    stateCode?: string;
+    lat?: number;
+    lon?: number;
+  };
 }
 
 interface DataCacheContextType {
@@ -76,10 +89,12 @@ interface DataCacheContextType {
   sports: SportsData | null;
   teamPreferences: TeamPreferences;
   appearancePreferences: AppearancePreferences;
+  concertPreferences: ConcertPreferences;
   setWeather: (data: WeatherData) => void;
   setSports: (data: SportsData) => void;
   setTeamPreferences: (prefs: TeamPreferences) => void;
   setAppearancePreferences: (prefs: AppearancePreferences) => void;
+  setConcertPreferences: (prefs: ConcertPreferences) => void;
   refreshWeather: () => Promise<void>;
   refreshSports: () => Promise<void>;
 }
@@ -101,6 +116,13 @@ export function DataCacheProvider({ children }: { children: ReactNode }) {
     showSports: true,
     showNotes: true,
     showMotivation: true,
+    showConcerts: true,
+    dashboardName: 'Dad Dashboard',
+  });
+  const [concertPreferences, setConcertPreferencesState] = useState<ConcertPreferences>({
+    favoriteArtists: [],
+    favoriteGenres: [],
+    location: {},
   });
 
   useEffect(() => {
@@ -109,6 +131,7 @@ export function DataCacheProvider({ children }: { children: ReactNode }) {
     const cachedSports = localStorage.getItem('cached_sports');
     const cachedTeamPrefs = localStorage.getItem('team_preferences');
     const cachedAppearancePrefs = localStorage.getItem('appearance_preferences');
+    const cachedConcertPrefs = localStorage.getItem('concert_preferences');
 
     if (cachedWeather) {
       const data = JSON.parse(cachedWeather);
@@ -152,6 +175,25 @@ export function DataCacheProvider({ children }: { children: ReactNode }) {
       setTeamPreferencesState(defaultPrefs);
       localStorage.setItem('team_preferences', JSON.stringify(defaultPrefs));
     }
+
+    if (cachedAppearancePrefs) {
+      const prefs = JSON.parse(cachedAppearancePrefs);
+      // Ensure all required fields exist
+      setAppearancePreferencesState({
+        darkMode: prefs.darkMode || false,
+        showWeather: prefs.showWeather !== undefined ? prefs.showWeather : true,
+        showSports: prefs.showSports !== undefined ? prefs.showSports : true,
+        showNotes: prefs.showNotes !== undefined ? prefs.showNotes : true,
+        showMotivation: prefs.showMotivation !== undefined ? prefs.showMotivation : true,
+        showConcerts: prefs.showConcerts !== undefined ? prefs.showConcerts : true,
+        dashboardName: prefs.dashboardName || 'Dad Dashboard',
+      });
+    }
+
+    if (cachedConcertPrefs) {
+      const prefs = JSON.parse(cachedConcertPrefs);
+      setConcertPreferencesState(prefs);
+    }
   }, []);
 
   const setWeather = (data: WeatherData) => {
@@ -182,6 +224,11 @@ export function DataCacheProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const setConcertPreferences = (prefs: ConcertPreferences) => {
+    setConcertPreferencesState(prefs);
+    localStorage.setItem('concert_preferences', JSON.stringify(prefs));
+  };
+
   const refreshWeather = async () => {
     // This will be implemented in WeatherWidget
   };
@@ -208,10 +255,12 @@ export function DataCacheProvider({ children }: { children: ReactNode }) {
         sports,
         teamPreferences,
         appearancePreferences,
+        concertPreferences,
         setWeather,
         setSports,
         setTeamPreferences,
         setAppearancePreferences,
+        setConcertPreferences,
         refreshWeather,
         refreshSports,
       }}

@@ -6,6 +6,7 @@ import { Settings } from 'lucide-react';
 import { isAuthenticated, clearSession } from '@/lib/auth';
 import WeatherWidget from '@/components/WeatherWidget';
 import SportsWidget from '@/components/SportsWidget';
+import ConcertsWidget from '@/components/ConcertsWidget';
 import StickyNotes from '@/components/StickyNotes';
 import MessagesTab from '@/components/MessagesTab';
 import DailyMotivation from '@/components/DailyMotivation';
@@ -69,12 +70,14 @@ function DashboardContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="h-screen bg-gray-50 dark:bg-gray-900 flex flex-col overflow-hidden">
       {/* Header */}
-      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+      <header className="flex-shrink-0 bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-200">Dad Dashboard</h1>
+            <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-200">
+              {appearancePreferences.dashboardName || 'Dad Dashboard'}
+            </h1>
             <div className="flex gap-2">
               <button
                 onClick={() => setShowSettingsModal(true)}
@@ -96,7 +99,7 @@ function DashboardContent() {
       </header>
 
       {/* Navigation Tabs */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+      <div className="flex-shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <nav className="flex space-x-8">
             <button
@@ -129,48 +132,51 @@ function DashboardContent() {
       </div>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {activeTab === 'dashboard' ? (
-          <div className="grid grid-cols-1 lg:grid-cols-10 gap-6">
-            {/* Left Side - Sticky Notes (70%) */}
-            <div className="lg:col-span-7">
-              {appearancePreferences.showNotes ? (
-                <StickyNotes />
-              ) : (
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 text-center text-gray-500 dark:text-gray-400">
-                  Sticky Notes widget is hidden. Enable it in Settings → Appearance.
-                </div>
-              )}
-            </div>
-
-            {/* Right Side - Widgets (30%) */}
-            <div className="lg:col-span-3 space-y-4">
-              {/* Weather and Sports Widgets */}
-              <div className="space-y-4">
-                {appearancePreferences.showWeather && <WeatherWidget />}
-                {appearancePreferences.showSports && <SportsWidget />}
-                {!appearancePreferences.showWeather && !appearancePreferences.showSports && (
-                  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-4 text-center text-sm text-gray-500 dark:text-gray-400">
-                    Widgets are hidden. Enable them in Settings → Appearance.
+      <main className="flex-1 flex flex-col min-h-0 overflow-y-auto">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full flex flex-col">
+          {activeTab === 'dashboard' ? (
+            <div className="grid grid-cols-1 lg:grid-cols-10 gap-6">
+              {/* Left Side - Sticky Notes (70%) */}
+              <div className="lg:col-span-7 flex flex-col min-h-0">
+                {appearancePreferences.showNotes ? (
+                  <StickyNotes />
+                ) : (
+                  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 text-center text-gray-500 dark:text-gray-400">
+                    Sticky Notes widget is hidden. Enable it in Settings → Appearance.
                   </div>
                 )}
               </div>
 
-              {/* Daily Motivation */}
-              {appearancePreferences.showMotivation && <DailyMotivation />}
+              {/* Right Side - Widgets (30%) */}
+              <div className="lg:col-span-3 space-y-4 flex flex-col">
+                {/* Weather, Sports, and Concerts Widgets */}
+                <div className="space-y-4">
+                  {appearancePreferences.showWeather && <WeatherWidget />}
+                  {appearancePreferences.showSports && <SportsWidget />}
+                  {appearancePreferences.showConcerts && <ConcertsWidget />}
+                  {!appearancePreferences.showWeather && !appearancePreferences.showSports && !appearancePreferences.showConcerts && (
+                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                      Widgets are hidden. Enable them in Settings → Appearance.
+                    </div>
+                  )}
+                </div>
+
+                {/* Daily Motivation */}
+                {appearancePreferences.showMotivation && <DailyMotivation />}
+              </div>
             </div>
-          </div>
-        ) : (
-          <MessagesTab onMessagesChange={() => {
-            // Refresh unread count when messages change
-            const stored = localStorage.getItem('messages');
-            if (stored) {
-              const messages = JSON.parse(stored);
-              const unread = messages.filter((msg: { read: boolean }) => !msg.read).length;
-              setUnreadCount(unread);
-            }
-          }} />
-        )}
+          ) : (
+            <MessagesTab onMessagesChange={() => {
+              // Refresh unread count when messages change
+              const stored = localStorage.getItem('messages');
+              if (stored) {
+                const messages = JSON.parse(stored);
+                const unread = messages.filter((msg: { read: boolean }) => !msg.read).length;
+                setUnreadCount(unread);
+              }
+            }} />
+          )}
+        </div>
       </main>
 
       <SettingsModal
