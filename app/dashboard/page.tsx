@@ -8,6 +8,7 @@ import WeatherWidget from '@/components/WeatherWidget';
 import SportsWidget from '@/components/SportsWidget';
 import ConcertsWidget from '@/components/ConcertsWidget';
 import StickyNotes from '@/components/StickyNotes';
+import CalendarWidget from '@/components/CalendarWidget';
 import MessagesTab from '@/components/MessagesTab';
 import DailyMotivation from '@/components/DailyMotivation';
 import SettingsModal from '@/components/SettingsModal';
@@ -135,34 +136,85 @@ function DashboardContent() {
       <main className="flex-1 flex flex-col min-h-0 overflow-y-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full flex flex-col">
           {activeTab === 'dashboard' ? (
-            <div className="grid grid-cols-1 lg:grid-cols-10 gap-6">
-              {/* Left Side - Sticky Notes (70%) */}
-              <div className="lg:col-span-7 flex flex-col min-h-0">
-                {appearancePreferences.showNotes ? (
-                  <StickyNotes />
-                ) : (
-                  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 text-center text-gray-500 dark:text-gray-400">
-                    Sticky Notes widget is hidden. Enable it in Settings → Appearance.
-                  </div>
-                )}
+            <div className="grid grid-cols-1 lg:grid-cols-10 gap-6 items-stretch">
+              {/* Left Side - Calendar and Notes (70%) */}
+              <div className="lg:col-span-7 flex flex-col h-full gap-6 min-h-0">
+                {(() => {
+                  const leftPanelOrder = appearancePreferences.leftPanelOrder || ['calendar', 'notes'];
+                  const widgets: JSX.Element[] = [];
+                  
+                  leftPanelOrder.forEach((widgetId) => {
+                    if (widgetId === 'calendar' && appearancePreferences.showCalendar) {
+                      widgets.push(
+                        <div key="calendar" className="flex-1 min-h-0">
+                          <CalendarWidget />
+                        </div>
+                      );
+                    } else if (widgetId === 'notes' && appearancePreferences.showNotes) {
+                      widgets.push(
+                        <div key="notes" className="flex-1 min-h-0">
+                          <StickyNotes />
+                        </div>
+                      );
+                    }
+                  });
+
+                  if (widgets.length === 0) {
+                    return (
+                      <div className="flex-1 min-h-0 flex items-center justify-center bg-white dark:bg-gray-800 rounded-xl shadow-md p-6">
+                        <div className="text-center text-gray-500 dark:text-gray-400">
+                          <p>No left panel widgets enabled.</p>
+                          <p className="text-sm mt-2">Enable Calendar or Notes in Settings → Appearance.</p>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return widgets;
+                })()}
               </div>
 
               {/* Right Side - Widgets (30%) */}
-              <div className="lg:col-span-3 space-y-4 flex flex-col">
-                {/* Weather, Sports, and Concerts Widgets */}
-                <div className="space-y-4">
-                  {appearancePreferences.showWeather && <WeatherWidget />}
-                  {appearancePreferences.showSports && <SportsWidget />}
-                  {appearancePreferences.showConcerts && <ConcertsWidget />}
-                  {!appearancePreferences.showWeather && !appearancePreferences.showSports && !appearancePreferences.showConcerts && (
-                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-4 text-center text-sm text-gray-500 dark:text-gray-400">
-                      Widgets are hidden. Enable them in Settings → Appearance.
-                    </div>
-                  )}
-                </div>
+              <div className="lg:col-span-3 space-y-4 flex flex-col h-full">
+                {(() => {
+                  const widgetOrder = appearancePreferences.widgetOrder || ['weather', 'sports', 'concerts', 'motivation'];
+                  const widgets: JSX.Element[] = [];
+                  
+                  widgetOrder.forEach((widgetId) => {
+                    switch (widgetId) {
+                      case 'weather':
+                        if (appearancePreferences.showWeather) {
+                          widgets.push(<WeatherWidget key="weather" />);
+                        }
+                        break;
+                      case 'sports':
+                        if (appearancePreferences.showSports) {
+                          widgets.push(<SportsWidget key="sports" />);
+                        }
+                        break;
+                      case 'concerts':
+                        if (appearancePreferences.showConcerts) {
+                          widgets.push(<ConcertsWidget key="concerts" />);
+                        }
+                        break;
+                      case 'motivation':
+                        if (appearancePreferences.showMotivation) {
+                          widgets.push(<DailyMotivation key="motivation" />);
+                        }
+                        break;
+                    }
+                  });
 
-                {/* Daily Motivation */}
-                {appearancePreferences.showMotivation && <DailyMotivation />}
+                  if (widgets.length === 0) {
+                    return (
+                      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                        Widgets are hidden. Enable them in Settings → Appearance.
+                      </div>
+                    );
+                  }
+
+                  return widgets;
+                })()}
               </div>
             </div>
           ) : (

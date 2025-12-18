@@ -1,19 +1,20 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Lock, Trophy, Palette, Music } from 'lucide-react';
+import { X, Lock, Trophy, Palette, Music, Calendar } from 'lucide-react';
 import { verifyPassword, changePassword } from '@/lib/auth';
 import { useDataCache } from '@/lib/DataCacheContext';
 import SportsTeamSettingsContent from './SportsTeamSettingsContent';
 import AppearanceSettingsContent from './AppearanceSettingsContent';
 import ConcertsSettingsContent from './ConcertsSettingsContent';
+import CalendarSettingsContent from './CalendarSettingsContent';
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-type Tab = 'password' | 'sports' | 'appearance' | 'concerts';
+type Tab = 'password' | 'sports' | 'appearance' | 'concerts' | 'calendar';
 
 export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [activeTab, setActiveTab] = useState<Tab>('password');
@@ -111,15 +112,15 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         <div className="border-b border-gray-200 dark:border-gray-700 px-6">
           <nav className="flex space-x-8">
             <button
-              onClick={() => setActiveTab('password')}
+              onClick={() => setActiveTab('calendar')}
               className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors ${
-                activeTab === 'password'
+                activeTab === 'calendar'
                   ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
                   : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
               }`}
             >
-              <Lock className="w-4 h-4" />
-              Password
+              <Calendar className="w-4 h-4" />
+              Calendar
             </button>
             <button
               onClick={() => setActiveTab('sports')}
@@ -133,6 +134,17 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               Sports Teams
             </button>
             <button
+              onClick={() => setActiveTab('concerts')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors ${
+                activeTab === 'concerts'
+                  ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
+                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
+              }`}
+            >
+              <Music className="w-4 h-4" />
+              Concerts
+            </button>
+            <button
               onClick={() => setActiveTab('appearance')}
               className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors ${
                 activeTab === 'appearance'
@@ -144,15 +156,15 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               Appearance
             </button>
             <button
-              onClick={() => setActiveTab('concerts')}
+              onClick={() => setActiveTab('password')}
               className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors ${
-                activeTab === 'concerts'
+                activeTab === 'password'
                   ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
                   : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
               }`}
             >
-              <Music className="w-4 h-4" />
-              Concerts
+              <Lock className="w-4 h-4" />
+              Password
             </button>
           </nav>
         </div>
@@ -252,9 +264,11 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             />
           ) : activeTab === 'appearance' ? (
             <AppearanceSettingsContent />
-          ) : (
+          ) : activeTab === 'concerts' ? (
             <ConcertsSettingsContent />
-          )}
+          ) : activeTab === 'calendar' ? (
+            <CalendarSettingsContent />
+          ) : null}
         </div>
       </div>
     </div>

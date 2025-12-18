@@ -132,7 +132,7 @@ export default function StickyNotes() {
   }
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6">
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 h-full flex flex-col">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-semibold text-gray-800 dark:text-gray-200">Notes & Reminders</h2>
         <button
@@ -194,7 +194,7 @@ export default function StickyNotes() {
         </div>
       )}
 
-      <div className="relative min-h-[400px]">
+      <div className="relative flex-1 min-h-0">
         {notes.length === 0 ? (
           <div className="text-center py-12 text-gray-500 dark:text-gray-400">
             <p>No notes yet. Click &quot;Add Note&quot; to create one!</p>

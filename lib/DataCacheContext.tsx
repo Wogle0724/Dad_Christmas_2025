@@ -70,7 +70,10 @@ interface AppearancePreferences {
   showNotes: boolean;
   showMotivation: boolean;
   showConcerts: boolean;
+  showCalendar: boolean;
   dashboardName: string;
+  widgetOrder: string[]; // Order of widgets: ['weather', 'sports', 'concerts', 'motivation']
+  leftPanelOrder: string[]; // Order of left panel widgets: ['calendar', 'notes']
 }
 
 interface ConcertPreferences {
@@ -84,17 +87,26 @@ interface ConcertPreferences {
   };
 }
 
+interface CalendarPreferences {
+  calendarIds: string[]; // Array of calendar IDs the user wants to display
+  accessToken?: string; // OAuth access token
+  refreshToken?: string; // OAuth refresh token
+  tokenExpiry?: number; // Timestamp when token expires
+}
+
 interface DataCacheContextType {
   weather: WeatherData | null;
   sports: SportsData | null;
   teamPreferences: TeamPreferences;
   appearancePreferences: AppearancePreferences;
   concertPreferences: ConcertPreferences;
+  calendarPreferences: CalendarPreferences;
   setWeather: (data: WeatherData) => void;
   setSports: (data: SportsData) => void;
   setTeamPreferences: (prefs: TeamPreferences) => void;
   setAppearancePreferences: (prefs: AppearancePreferences) => void;
   setConcertPreferences: (prefs: ConcertPreferences) => void;
+  setCalendarPreferences: (prefs: CalendarPreferences) => void;
   refreshWeather: () => Promise<void>;
   refreshSports: () => Promise<void>;
 }
@@ -117,12 +129,18 @@ export function DataCacheProvider({ children }: { children: ReactNode }) {
     showNotes: true,
     showMotivation: true,
     showConcerts: true,
+    showCalendar: true,
     dashboardName: 'Dad Dashboard',
+    widgetOrder: ['weather', 'sports', 'concerts', 'motivation'],
+    leftPanelOrder: ['calendar', 'notes'],
   });
   const [concertPreferences, setConcertPreferencesState] = useState<ConcertPreferences>({
     favoriteArtists: [],
     favoriteGenres: [],
     location: {},
+  });
+  const [calendarPreferences, setCalendarPreferencesState] = useState<CalendarPreferences>({
+    calendarIds: [],
   });
 
   useEffect(() => {
@@ -132,6 +150,7 @@ export function DataCacheProvider({ children }: { children: ReactNode }) {
     const cachedTeamPrefs = localStorage.getItem('team_preferences');
     const cachedAppearancePrefs = localStorage.getItem('appearance_preferences');
     const cachedConcertPrefs = localStorage.getItem('concert_preferences');
+    const cachedCalendarPrefs = localStorage.getItem('calendar_preferences');
 
     if (cachedWeather) {
       const data = JSON.parse(cachedWeather);
@@ -186,13 +205,21 @@ export function DataCacheProvider({ children }: { children: ReactNode }) {
         showNotes: prefs.showNotes !== undefined ? prefs.showNotes : true,
         showMotivation: prefs.showMotivation !== undefined ? prefs.showMotivation : true,
         showConcerts: prefs.showConcerts !== undefined ? prefs.showConcerts : true,
+        showCalendar: prefs.showCalendar !== undefined ? prefs.showCalendar : true,
         dashboardName: prefs.dashboardName || 'Dad Dashboard',
+        widgetOrder: prefs.widgetOrder || ['weather', 'sports', 'concerts', 'motivation'],
+        leftPanelOrder: prefs.leftPanelOrder || (prefs.calendarNotesOrder === 'notes-first' ? ['notes', 'calendar'] : ['calendar', 'notes']),
       });
     }
 
     if (cachedConcertPrefs) {
       const prefs = JSON.parse(cachedConcertPrefs);
       setConcertPreferencesState(prefs);
+    }
+
+    if (cachedCalendarPrefs) {
+      const prefs = JSON.parse(cachedCalendarPrefs);
+      setCalendarPreferencesState(prefs);
     }
   }, []);
 
@@ -229,6 +256,11 @@ export function DataCacheProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('concert_preferences', JSON.stringify(prefs));
   };
 
+  const setCalendarPreferences = (prefs: CalendarPreferences) => {
+    setCalendarPreferencesState(prefs);
+    localStorage.setItem('calendar_preferences', JSON.stringify(prefs));
+  };
+
   const refreshWeather = async () => {
     // This will be implemented in WeatherWidget
   };
@@ -256,11 +288,13 @@ export function DataCacheProvider({ children }: { children: ReactNode }) {
         teamPreferences,
         appearancePreferences,
         concertPreferences,
+        calendarPreferences,
         setWeather,
         setSports,
         setTeamPreferences,
         setAppearancePreferences,
         setConcertPreferences,
+        setCalendarPreferences,
         refreshWeather,
         refreshSports,
       }}

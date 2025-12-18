@@ -21,6 +21,11 @@ DASHBOARD_PASSWORD=dad2025
 # and add your credentials here:
 # NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 # NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+
+# Optional: Google Calendar Integration
+# See GOOGLE_CALENDAR_SETUP.md for detailed instructions
+# GOOGLE_CALENDAR_API_KEY=your_google_calendar_api_key
+# GOOGLE_CALENDAR_ID=primary
 ```
 
 **Important:** Change the `DASHBOARD_PASSWORD` to something secure!
