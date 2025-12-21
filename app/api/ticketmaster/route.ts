@@ -35,10 +35,16 @@ export async function GET(request: NextRequest) {
 
     // Build URL with query parameters
     const baseUrl = 'https://app.ticketmaster.com/discovery/v2/events.json';
+    
+    // Get current date in ISO format for filtering future events
+    const now = new Date();
+    const startDateTime = now.toISOString();
+    
     const params = new URLSearchParams({
       apikey: apiKey,
       size: size,
       sort: 'date,asc', // Sort by date, ascending (upcoming first)
+      startDateTime: startDateTime, // Only get events starting from now
     });
 
     // Add location parameters
@@ -92,8 +98,10 @@ export async function GET(request: NextRequest) {
       eventCount: data._embedded?.events?.length || 0,
     });
 
-    // Transform the data to a consistent format
-    const events = (data._embedded?.events || []).map((event: any) => {
+    // Transform the data to a consistent format and filter out past events
+    // Reuse the `now` variable declared earlier
+    const events = (data._embedded?.events || [])
+      .map((event: any) => {
       // Get venue information
       const venue = event._embedded?.venues?.[0];
       const venueName = venue?.name || 'TBD';
@@ -145,9 +153,20 @@ export async function GET(request: NextRequest) {
             }
           : undefined,
       };
+    })
+    .filter((event: any) => {
+      // Double-check: filter out any past events that might have slipped through
+      try {
+        const eventDate = new Date(event.date);
+        // Include events that are today or in the future (with 1 hour buffer for timezone issues)
+        return eventDate.getTime() >= (now.getTime() - 60 * 60 * 1000);
+      } catch {
+        // If date parsing fails, include it (better to show than hide)
+        return true;
+      }
     });
 
-    console.log(`[Ticketmaster API] Returning ${events.length} transformed events`);
+    console.log(`[Ticketmaster API] Returning ${events.length} transformed events (past events filtered out)`);
 
     return NextResponse.json({ events, total: data.page?.totalElements || events.length });
   } catch (error) {

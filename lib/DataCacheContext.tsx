@@ -144,83 +144,197 @@ export function DataCacheProvider({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
-    // Load cached data on mount
-    const cachedWeather = localStorage.getItem('cached_weather');
-    const cachedSports = localStorage.getItem('cached_sports');
-    const cachedTeamPrefs = localStorage.getItem('team_preferences');
-    const cachedAppearancePrefs = localStorage.getItem('appearance_preferences');
-    const cachedConcertPrefs = localStorage.getItem('concert_preferences');
-    const cachedCalendarPrefs = localStorage.getItem('calendar_preferences');
-
-    if (cachedWeather) {
-      const data = JSON.parse(cachedWeather);
-      const age = Date.now() - data.timestamp;
-      if (age < CACHE_DURATION) {
-        setWeatherState(data);
-      }
-    }
-
-    if (cachedSports) {
-      const data = JSON.parse(cachedSports);
-      const age = Date.now() - data.timestamp;
-      if (age < CACHE_DURATION) {
-        setSportsState(data);
-      }
-    }
-
-    if (cachedTeamPrefs) {
-      const prefs = JSON.parse(cachedTeamPrefs);
-      // Migrate old format (just IDs) to new format (composite keys)
-      // If any team ID doesn't contain a dash, it's the old format
-      const needsMigration = prefs.selectedTeams.some((id: string) => !id.includes('-'));
-      if (needsMigration) {
-        // Clear old preferences - user will need to reselect teams
-        const migratedPrefs: TeamPreferences = {
-          selectedTeams: [],
-          favoriteTeams: [],
-        };
-        setTeamPreferencesState(migratedPrefs);
-        localStorage.setItem('team_preferences', JSON.stringify(migratedPrefs));
-      } else {
-        setTeamPreferencesState(prefs);
-      }
+    // Detect page reload using sessionStorage
+    const lastLoadTime = sessionStorage.getItem('last_page_load');
+    const currentTime = Date.now();
+    const isPageReload = lastLoadTime !== null;
+    
+    // Update session storage with current load time
+    sessionStorage.setItem('last_page_load', currentTime.toString());
+    
+    // On page reload, clear cached data to force fresh API calls
+    if (isPageReload) {
+      console.log('[DataCache] Page reload detected - clearing cache for fresh data');
+      localStorage.removeItem('cached_weather');
+      localStorage.removeItem('cached_sports');
+      localStorage.removeItem('cached_concerts');
+      // Keep preferences (team selections, appearance, etc.) but clear data cache
+      // Set state to null to force widgets to fetch fresh data
+      setWeatherState(null);
+      setSportsState(null);
     } else {
-      // Default: San Diego Padres (using composite key format)
-      // Padres: ID 25, sport: baseball, league: mlb
-      const defaultPrefs: TeamPreferences = {
-        selectedTeams: ['25-baseball-mlb'],
-        favoriteTeams: ['25-baseball-mlb'],
-      };
-      setTeamPreferencesState(defaultPrefs);
-      localStorage.setItem('team_preferences', JSON.stringify(defaultPrefs));
+      // First load - load cached data if available
+      const cachedWeather = localStorage.getItem('cached_weather');
+      const cachedSports = localStorage.getItem('cached_sports');
+
+      if (cachedWeather) {
+        const data = JSON.parse(cachedWeather);
+        const age = Date.now() - data.timestamp;
+        if (age < CACHE_DURATION) {
+          setWeatherState(data);
+        }
+      }
+
+      if (cachedSports) {
+        const data = JSON.parse(cachedSports);
+        const age = Date.now() - data.timestamp;
+        if (age < CACHE_DURATION) {
+          setSportsState(data);
+        }
+      }
     }
 
-    if (cachedAppearancePrefs) {
-      const prefs = JSON.parse(cachedAppearancePrefs);
-      // Ensure all required fields exist
-      setAppearancePreferencesState({
-        darkMode: prefs.darkMode || false,
-        showWeather: prefs.showWeather !== undefined ? prefs.showWeather : true,
-        showSports: prefs.showSports !== undefined ? prefs.showSports : true,
-        showNotes: prefs.showNotes !== undefined ? prefs.showNotes : true,
-        showMotivation: prefs.showMotivation !== undefined ? prefs.showMotivation : true,
-        showConcerts: prefs.showConcerts !== undefined ? prefs.showConcerts : true,
-        showCalendar: prefs.showCalendar !== undefined ? prefs.showCalendar : true,
-        dashboardName: prefs.dashboardName || 'Dad Dashboard',
-        widgetOrder: prefs.widgetOrder || ['weather', 'sports', 'concerts', 'motivation'],
-        leftPanelOrder: prefs.leftPanelOrder || (prefs.calendarNotesOrder === 'notes-first' ? ['notes', 'calendar'] : ['calendar', 'notes']),
-      });
-    }
-
-    if (cachedConcertPrefs) {
-      const prefs = JSON.parse(cachedConcertPrefs);
-      setConcertPreferencesState(prefs);
-    }
-
-    if (cachedCalendarPrefs) {
-      const prefs = JSON.parse(cachedCalendarPrefs);
-      setCalendarPreferencesState(prefs);
-    }
+    // Load preferences from server (universal across devices)
+    const loadPreferences = async () => {
+      try {
+        const response = await fetch('/api/user-data');
+        if (response.ok) {
+          const userData = await response.json();
+          
+          // Load team preferences
+          if (userData.teamPreferences) {
+            const prefs = userData.teamPreferences;
+            // Migrate old format if needed
+            const needsMigration = prefs.selectedTeams?.some((id: string) => !id.includes('-'));
+            if (needsMigration) {
+              const migratedPrefs: TeamPreferences = {
+                selectedTeams: [],
+                favoriteTeams: [],
+              };
+              setTeamPreferencesState(migratedPrefs);
+              // Save migrated prefs back to server
+              await fetch('/api/user-data', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ section: 'teamPreferences', data: migratedPrefs }),
+              });
+            } else {
+              setTeamPreferencesState(prefs);
+            }
+          } else {
+            // Default: San Diego Padres
+            const defaultPrefs: TeamPreferences = {
+              selectedTeams: ['25-baseball-mlb'],
+              favoriteTeams: ['25-baseball-mlb'],
+            };
+            setTeamPreferencesState(defaultPrefs);
+            await fetch('/api/user-data', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ section: 'teamPreferences', data: defaultPrefs }),
+            });
+          }
+          
+          // Load appearance preferences
+          if (userData.appearancePreferences) {
+            const prefs = userData.appearancePreferences;
+            setAppearancePreferencesState({
+              darkMode: prefs.darkMode || false,
+              showWeather: prefs.showWeather !== undefined ? prefs.showWeather : true,
+              showSports: prefs.showSports !== undefined ? prefs.showSports : true,
+              showNotes: prefs.showNotes !== undefined ? prefs.showNotes : true,
+              showMotivation: prefs.showMotivation !== undefined ? prefs.showMotivation : true,
+              showConcerts: prefs.showConcerts !== undefined ? prefs.showConcerts : true,
+              showCalendar: prefs.showCalendar !== undefined ? prefs.showCalendar : true,
+              dashboardName: prefs.dashboardName || 'Dad Dashboard',
+              widgetOrder: prefs.widgetOrder || ['weather', 'sports', 'concerts', 'motivation'],
+              leftPanelOrder: prefs.leftPanelOrder || (prefs.calendarNotesOrder === 'notes-first' ? ['notes', 'calendar'] : ['calendar', 'notes']),
+            });
+          }
+          
+          // Load concert preferences
+          if (userData.concertPreferences) {
+            setConcertPreferencesState(userData.concertPreferences);
+          }
+          
+          // Load calendar preferences
+          if (userData.calendarPreferences) {
+            setCalendarPreferencesState(userData.calendarPreferences);
+          }
+        } else {
+          // Fallback to localStorage for migration
+          const cachedTeamPrefs = localStorage.getItem('team_preferences');
+          const cachedAppearancePrefs = localStorage.getItem('appearance_preferences');
+          const cachedConcertPrefs = localStorage.getItem('concert_preferences');
+          const cachedCalendarPrefs = localStorage.getItem('calendar_preferences');
+          
+          if (cachedTeamPrefs) {
+            const prefs = JSON.parse(cachedTeamPrefs);
+            setTeamPreferencesState(prefs);
+            // Migrate to server
+            await fetch('/api/user-data', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ section: 'teamPreferences', data: prefs }),
+            });
+          }
+          
+          if (cachedAppearancePrefs) {
+            const prefs = JSON.parse(cachedAppearancePrefs);
+            setAppearancePreferencesState({
+              darkMode: prefs.darkMode || false,
+              showWeather: prefs.showWeather !== undefined ? prefs.showWeather : true,
+              showSports: prefs.showSports !== undefined ? prefs.showSports : true,
+              showNotes: prefs.showNotes !== undefined ? prefs.showNotes : true,
+              showMotivation: prefs.showMotivation !== undefined ? prefs.showMotivation : true,
+              showConcerts: prefs.showConcerts !== undefined ? prefs.showConcerts : true,
+              showCalendar: prefs.showCalendar !== undefined ? prefs.showCalendar : true,
+              dashboardName: prefs.dashboardName || 'Dad Dashboard',
+              widgetOrder: prefs.widgetOrder || ['weather', 'sports', 'concerts', 'motivation'],
+              leftPanelOrder: prefs.leftPanelOrder || (prefs.calendarNotesOrder === 'notes-first' ? ['notes', 'calendar'] : ['calendar', 'notes']),
+            });
+            // Migrate to server
+            await fetch('/api/user-data', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ section: 'appearancePreferences', data: prefs }),
+            });
+          }
+          
+          if (cachedConcertPrefs) {
+            const prefs = JSON.parse(cachedConcertPrefs);
+            setConcertPreferencesState(prefs);
+            await fetch('/api/user-data', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ section: 'concertPreferences', data: prefs }),
+            });
+          }
+          
+          if (cachedCalendarPrefs) {
+            const prefs = JSON.parse(cachedCalendarPrefs);
+            setCalendarPreferencesState(prefs);
+            await fetch('/api/user-data', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ section: 'calendarPreferences', data: prefs }),
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Error loading preferences from server:', error);
+        // Fallback to localStorage if server fails
+        const cachedTeamPrefs = localStorage.getItem('team_preferences');
+        const cachedAppearancePrefs = localStorage.getItem('appearance_preferences');
+        const cachedConcertPrefs = localStorage.getItem('concert_preferences');
+        const cachedCalendarPrefs = localStorage.getItem('calendar_preferences');
+        
+        if (cachedTeamPrefs) {
+          setTeamPreferencesState(JSON.parse(cachedTeamPrefs));
+        }
+        if (cachedAppearancePrefs) {
+          setAppearancePreferencesState(JSON.parse(cachedAppearancePrefs));
+        }
+        if (cachedConcertPrefs) {
+          setConcertPreferencesState(JSON.parse(cachedConcertPrefs));
+        }
+        if (cachedCalendarPrefs) {
+          setCalendarPreferencesState(JSON.parse(cachedCalendarPrefs));
+        }
+      }
+    };
+    
+    loadPreferences();
   }, []);
 
   const setWeather = (data: WeatherData) => {
@@ -233,32 +347,72 @@ export function DataCacheProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('cached_sports', JSON.stringify(data));
   };
 
-  const setTeamPreferences = (prefs: TeamPreferences) => {
-    setTeamPreferencesState(prefs);
-    localStorage.setItem('team_preferences', JSON.stringify(prefs));
+  const setTeamPreferences = (prefs: TeamPreferences | ((prev: TeamPreferences) => TeamPreferences)) => {
+    const newPrefs = typeof prefs === 'function' ? prefs(teamPreferences) : prefs;
+    setTeamPreferencesState(newPrefs);
+    // Save to server (universal across devices) - fire and forget
+    fetch('/api/user-data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ section: 'teamPreferences', data: newPrefs }),
+    }).catch((error) => {
+      console.error('Error saving team preferences:', error);
+      // Fallback to localStorage
+      localStorage.setItem('team_preferences', JSON.stringify(newPrefs));
+    });
   };
 
-  const setAppearancePreferences = (prefs: AppearancePreferences) => {
-    setAppearancePreferencesState(prefs);
-    localStorage.setItem('appearance_preferences', JSON.stringify(prefs));
+  const setAppearancePreferences = (prefs: AppearancePreferences | ((prev: AppearancePreferences) => AppearancePreferences)) => {
+    const newPrefs = typeof prefs === 'function' ? prefs(appearancePreferences) : prefs;
+    setAppearancePreferencesState(newPrefs);
     // Apply dark mode immediately
     if (typeof document !== 'undefined') {
-      if (prefs.darkMode) {
+      if (newPrefs.darkMode) {
         document.documentElement.classList.add('dark');
       } else {
         document.documentElement.classList.remove('dark');
       }
     }
+    // Save to server (universal across devices) - fire and forget
+    fetch('/api/user-data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ section: 'appearancePreferences', data: newPrefs }),
+    }).catch((error) => {
+      console.error('Error saving appearance preferences:', error);
+      // Fallback to localStorage
+      localStorage.setItem('appearance_preferences', JSON.stringify(newPrefs));
+    });
   };
 
-  const setConcertPreferences = (prefs: ConcertPreferences) => {
-    setConcertPreferencesState(prefs);
-    localStorage.setItem('concert_preferences', JSON.stringify(prefs));
+  const setConcertPreferences = (prefs: ConcertPreferences | ((prev: ConcertPreferences) => ConcertPreferences)) => {
+    const newPrefs = typeof prefs === 'function' ? prefs(concertPreferences) : prefs;
+    setConcertPreferencesState(newPrefs);
+    // Save to server (universal across devices) - fire and forget
+    fetch('/api/user-data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ section: 'concertPreferences', data: newPrefs }),
+    }).catch((error) => {
+      console.error('Error saving concert preferences:', error);
+      // Fallback to localStorage
+      localStorage.setItem('concert_preferences', JSON.stringify(newPrefs));
+    });
   };
 
-  const setCalendarPreferences = (prefs: CalendarPreferences) => {
-    setCalendarPreferencesState(prefs);
-    localStorage.setItem('calendar_preferences', JSON.stringify(prefs));
+  const setCalendarPreferences = (prefs: CalendarPreferences | ((prev: CalendarPreferences) => CalendarPreferences)) => {
+    const newPrefs = typeof prefs === 'function' ? prefs(calendarPreferences) : prefs;
+    setCalendarPreferencesState(newPrefs);
+    // Save to server (universal across devices) - fire and forget
+    fetch('/api/user-data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ section: 'calendarPreferences', data: newPrefs }),
+    }).catch((error) => {
+      console.error('Error saving calendar preferences:', error);
+      // Fallback to localStorage
+      localStorage.setItem('calendar_preferences', JSON.stringify(newPrefs));
+    });
   };
 
   const refreshWeather = async () => {

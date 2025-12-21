@@ -78,30 +78,85 @@ export default function DailyMotivation() {
   const [lastDate, setLastDate] = useState('');
 
   useEffect(() => {
-    const today = new Date().toISOString().split('T')[0];
-    const stored = localStorage.getItem('daily-motivation');
-    const storedDate = localStorage.getItem('daily-motivation-date');
-
-    if (stored && storedDate === today) {
-      setMotivation(stored);
-      setLastDate(today);
-    } else {
+    const loadMotivation = async () => {
+      const today = new Date().toISOString().split('T')[0];
+      
+      try {
+        // Fetch from server (universal across devices)
+        const response = await fetch('/api/user-data?section=dailyMotivation');
+        if (response.ok) {
+          const data = await response.json();
+          const storedMotivation = data.dailyMotivation || data.motivation;
+          const storedDate = data.dailyMotivationDate || data.date;
+          
+          if (storedMotivation && storedDate === today) {
+            setMotivation(storedMotivation);
+            setLastDate(today);
+            return;
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching motivation:', error);
+        // Fallback to localStorage
+        const stored = localStorage.getItem('daily-motivation');
+        const storedDate = localStorage.getItem('daily-motivation-date');
+        if (stored && storedDate === today) {
+          setMotivation(stored);
+          setLastDate(today);
+          return;
+        }
+      }
+      
       // Get a new motivation for today
       const todayIndex = new Date().getDate() % MOTIVATIONS.length;
       const newMotivation = MOTIVATIONS[todayIndex];
       setMotivation(newMotivation);
       setLastDate(today);
+      
+      // Save to server
+      try {
+        await fetch('/api/user-data', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            section: 'dailyMotivation',
+            data: { motivation: newMotivation, date: today },
+          }),
+        });
+      } catch (error) {
+        console.error('Error saving motivation:', error);
+        // Fallback to localStorage
+        localStorage.setItem('daily-motivation', newMotivation);
+        localStorage.setItem('daily-motivation-date', today);
+      }
+    };
+    
+    loadMotivation();
+  }, []);
+
+  const refreshMotivation = async () => {
+    const randomIndex = Math.floor(Math.random() * MOTIVATIONS.length);
+    const newMotivation = MOTIVATIONS[randomIndex];
+    const today = new Date().toISOString().split('T')[0];
+    setMotivation(newMotivation);
+    setLastDate(today);
+    
+    // Save to server
+    try {
+      await fetch('/api/user-data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          section: 'dailyMotivation',
+          data: { motivation: newMotivation, date: today },
+        }),
+      });
+    } catch (error) {
+      console.error('Error saving motivation:', error);
+      // Fallback to localStorage
       localStorage.setItem('daily-motivation', newMotivation);
       localStorage.setItem('daily-motivation-date', today);
     }
-  }, []);
-
-  const refreshMotivation = () => {
-    const randomIndex = Math.floor(Math.random() * MOTIVATIONS.length);
-    const newMotivation = MOTIVATIONS[randomIndex];
-    setMotivation(newMotivation);
-    localStorage.setItem('daily-motivation', newMotivation);
-    localStorage.setItem('daily-motivation-date', new Date().toISOString().split('T')[0]);
   };
 
   if (!motivation) {

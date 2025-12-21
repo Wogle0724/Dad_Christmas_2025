@@ -2,34 +2,48 @@
 // For now, we'll use a simple password check
 // You should replace this with proper authentication
 
-function getStoredPassword(): string {
-  if (typeof window !== 'undefined') {
-    const stored = localStorage.getItem('dashboard_password');
-    if (stored) {
-      return stored;
+async function getStoredPassword(): Promise<string> {
+  try {
+    const response = await fetch('/api/user-data?section=password');
+    if (response.ok) {
+      const data = await response.json();
+      return data.password || process.env.NEXT_PUBLIC_DASHBOARD_PASSWORD || 'dad2025';
     }
-    // Initialize with default password on first use
-    const defaultPassword = process.env.NEXT_PUBLIC_DASHBOARD_PASSWORD || 'dad2025';
-    localStorage.setItem('dashboard_password', defaultPassword);
-    return defaultPassword;
+  } catch (error) {
+    console.error('Error fetching password:', error);
   }
-  // Default password from env or fallback (server-side)
+  // Fallback to env or default
   return process.env.NEXT_PUBLIC_DASHBOARD_PASSWORD || 'dad2025';
 }
 
 export async function verifyPassword(password: string): Promise<boolean> {
-  const correctPassword = getStoredPassword();
+  const correctPassword = await getStoredPassword();
   return password === correctPassword;
 }
 
 export function changePassword(currentPassword: string, newPassword: string): Promise<boolean> {
-  return new Promise((resolve) => {
-    const correctPassword = getStoredPassword();
+  return new Promise(async (resolve) => {
+    const correctPassword = await getStoredPassword();
     if (currentPassword === correctPassword) {
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('dashboard_password', newPassword);
+      try {
+        const response = await fetch('/api/user-data', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            section: 'password',
+            data: newPassword,
+          }),
+        });
+        
+        if (response.ok) {
+          resolve(true);
+        } else {
+          resolve(false);
+        }
+      } catch (error) {
+        console.error('Error updating password:', error);
+        resolve(false);
       }
-      resolve(true);
     } else {
       resolve(false);
     }

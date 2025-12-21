@@ -26,6 +26,9 @@ yarn-error.log*
 
 # local env files
 .env*.local
+
+# user data (server-side storage)
+/data/
 .env
 
 # vercel

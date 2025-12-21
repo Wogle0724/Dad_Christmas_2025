@@ -18,19 +18,23 @@ export default function MessagesTab({ onMessagesChange }: MessagesTabProps) {
 
   const fetchMessages = async () => {
     try {
-      // Try Supabase first
-      const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (!error && data) {
-        setMessages(data);
+      // Fetch from server (universal across devices)
+      const response = await fetch('/api/user-data?section=messages');
+      if (response.ok) {
+        const data = await response.json();
+        setMessages(data.messages || []);
       } else {
-        // Fallback to localStorage
+        // Fallback to localStorage for migration
         const stored = localStorage.getItem('messages');
         if (stored) {
-          setMessages(JSON.parse(stored));
+          const messages = JSON.parse(stored);
+          setMessages(messages);
+          // Migrate to server
+          await fetch('/api/user-data', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ section: 'messages', data: messages }),
+          });
         }
       }
     } catch (error) {
@@ -52,20 +56,16 @@ export default function MessagesTab({ onMessagesChange }: MessagesTabProps) {
     setMessages(updatedMessages);
 
     try {
-      // Save to localStorage
-      localStorage.setItem('messages', JSON.stringify(updatedMessages));
-
-      // Try Supabase
-      const { error } = await supabase
-        .from('messages')
-        .update({ read: true })
-        .eq('id', id);
-
-      if (error) {
-        console.error('Supabase error (using localStorage):', error);
-      }
+      // Save to server (universal across devices)
+      await fetch('/api/user-data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ section: 'messages', data: updatedMessages }),
+      });
     } catch (error) {
       console.error('Error updating message:', error);
+      // Fallback to localStorage
+      localStorage.setItem('messages', JSON.stringify(updatedMessages));
     }
     
     onMessagesChange?.();
@@ -76,20 +76,16 @@ export default function MessagesTab({ onMessagesChange }: MessagesTabProps) {
     setMessages(updatedMessages);
 
     try {
-      // Save to localStorage
-      localStorage.setItem('messages', JSON.stringify(updatedMessages));
-
-      // Try Supabase
-      const { error } = await supabase
-        .from('messages')
-        .delete()
-        .eq('id', id);
-
-      if (error) {
-        console.error('Supabase error (using localStorage):', error);
-      }
+      // Save to server (universal across devices)
+      await fetch('/api/user-data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ section: 'messages', data: updatedMessages }),
+      });
     } catch (error) {
       console.error('Error deleting message:', error);
+      // Fallback to localStorage
+      localStorage.setItem('messages', JSON.stringify(updatedMessages));
     }
     
     onMessagesChange?.();

@@ -33,21 +33,40 @@ function DashboardContent() {
       router.push('/login');
       return;
     }
+    
+    // Force refresh on page reload is handled by DataCacheContext
+    // All widgets will automatically fetch fresh data when cache is cleared
     // No periodic check - user stays logged in until they manually logout or close browser
   }, [router]);
 
   useEffect(() => {
-    // Check for unread messages
-    const checkUnreadMessages = () => {
+    // Check for unread messages from server (universal across devices)
+    const checkUnreadMessages = async () => {
       try {
+        const response = await fetch('/api/user-data?section=messages');
+        if (response.ok) {
+          const data = await response.json();
+          const messages = data.messages || [];
+          const unread = messages.filter((msg: { read: boolean }) => !msg.read).length;
+          setUnreadCount(unread);
+        } else {
+          // Fallback to localStorage
+          const stored = localStorage.getItem('messages');
+          if (stored) {
+            const messages = JSON.parse(stored);
+            const unread = messages.filter((msg: { read: boolean }) => !msg.read).length;
+            setUnreadCount(unread);
+          }
+        }
+      } catch (error) {
+        console.error('Error checking unread messages:', error);
+        // Fallback to localStorage
         const stored = localStorage.getItem('messages');
         if (stored) {
           const messages = JSON.parse(stored);
           const unread = messages.filter((msg: { read: boolean }) => !msg.read).length;
           setUnreadCount(unread);
         }
-      } catch (error) {
-        console.error('Error checking unread messages:', error);
       }
     };
 
@@ -218,13 +237,18 @@ function DashboardContent() {
               </div>
             </div>
           ) : (
-            <MessagesTab onMessagesChange={() => {
+            <MessagesTab onMessagesChange={async () => {
               // Refresh unread count when messages change
-              const stored = localStorage.getItem('messages');
-              if (stored) {
-                const messages = JSON.parse(stored);
-                const unread = messages.filter((msg: { read: boolean }) => !msg.read).length;
-                setUnreadCount(unread);
+              try {
+                const response = await fetch('/api/user-data?section=messages');
+                if (response.ok) {
+                  const data = await response.json();
+                  const messages = data.messages || [];
+                  const unread = messages.filter((msg: { read: boolean }) => !msg.read).length;
+                  setUnreadCount(unread);
+                }
+              } catch (error) {
+                console.error('Error refreshing unread count:', error);
               }
             }} />
           )}

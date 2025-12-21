@@ -22,23 +22,32 @@ export default function StickyNotes() {
 
   const fetchNotes = async () => {
     try {
-      // For now, using localStorage as fallback if Supabase isn't configured
-      const stored = localStorage.getItem('sticky-notes');
-      if (stored) {
-        setNotes(JSON.parse(stored));
+      // Fetch from server (universal across devices)
+      const response = await fetch('/api/user-data?section=notes');
+      if (response.ok) {
+        const data = await response.json();
+        setNotes(data.notes || []);
       } else {
-        // Try Supabase
-        const { data, error } = await supabase
-          .from('notes')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (!error && data) {
-          setNotes(data);
+        // Fallback to localStorage for migration
+        const stored = localStorage.getItem('sticky-notes');
+        if (stored) {
+          const notes = JSON.parse(stored);
+          setNotes(notes);
+          // Migrate to server
+          await fetch('/api/user-data', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ section: 'notes', data: notes }),
+          });
         }
       }
     } catch (error) {
       console.error('Error fetching notes:', error);
+      // Fallback to localStorage
+      const stored = localStorage.getItem('sticky-notes');
+      if (stored) {
+        setNotes(JSON.parse(stored));
+      }
     } finally {
       setLoading(false);
     }
@@ -46,19 +55,16 @@ export default function StickyNotes() {
 
   const saveNotes = async (updatedNotes: Note[]) => {
     try {
-      // Save to localStorage as fallback
-      localStorage.setItem('sticky-notes', JSON.stringify(updatedNotes));
-      
-      // Also try to save to Supabase if configured
-      const { error } = await supabase
-        .from('notes')
-        .upsert(updatedNotes);
-
-      if (error) {
-        console.error('Supabase error (using localStorage):', error);
-      }
+      // Save to server (universal across devices)
+      await fetch('/api/user-data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ section: 'notes', data: updatedNotes }),
+      });
     } catch (error) {
       console.error('Error saving notes:', error);
+      // Fallback to localStorage
+      localStorage.setItem('sticky-notes', JSON.stringify(updatedNotes));
     }
   };
 

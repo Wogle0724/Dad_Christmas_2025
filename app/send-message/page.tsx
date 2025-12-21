@@ -17,20 +17,30 @@ export default function SendMessagePage() {
     setLoading(true);
 
     try {
-      // Try Supabase first
-      const { error } = await supabase
-        .from('messages')
-        .insert([
-          {
-            name: name.trim(),
-            message: message.trim(),
-            read: false,
-          },
-        ]);
-
-      if (error) throw error;
+      // Fetch existing messages from server
+      const response = await fetch('/api/user-data?section=messages');
+      const existingMessages = response.ok 
+        ? (await response.json()).messages || []
+        : JSON.parse(localStorage.getItem('messages') || '[]');
+      
+      // Add new message
+      const newMessage = {
+        id: Date.now().toString(),
+        name: name.trim(),
+        message: message.trim(),
+        read: false,
+        created_at: new Date().toISOString(),
+      };
+      const updatedMessages = [...existingMessages, newMessage];
+      
+      // Save to server (universal across devices)
+      await fetch('/api/user-data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ section: 'messages', data: updatedMessages }),
+      });
     } catch (error) {
-      console.error('Supabase error, using localStorage:', error);
+      console.error('Error sending message:', error);
       // Fallback to localStorage
       const existingMessages = JSON.parse(localStorage.getItem('messages') || '[]');
       const newMessage = {

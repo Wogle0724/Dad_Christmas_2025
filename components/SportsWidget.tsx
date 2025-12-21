@@ -57,9 +57,9 @@ export default function SportsWidget() {
 
   const fetchTeamData = useCallback(async (teamId: string, sport: string, league: string) => {
     try {
-      // Fetch news
+      // Fetch news (no limit - API will return all with team articles first)
       console.log(`[SportsWidget] Fetching news for teamId=${teamId}, sport=${sport}, league=${league}`);
-      const newsResponse = await fetch(`/api/espn-news?sport=${sport}&league=${league}&teamId=${teamId}&limit=3`);
+      const newsResponse = await fetch(`/api/espn-news?sport=${sport}&league=${league}&teamId=${teamId}`);
       const newsData = await newsResponse.json();
       console.log(`[SportsWidget] News API response:`, {
         hasArticles: !!newsData.articles,
@@ -69,13 +69,6 @@ export default function SportsWidget() {
       });
       
       const news: NewsItem[] = (newsData.articles || []).map((article: any) => {
-        console.log(`[SportsWidget] Processing article:`, {
-          title: article.title,
-          url: article.url,
-          publishedAt: article.publishedAt,
-          image: article.image,
-          fullArticle: article,
-        });
         return {
           title: article.title,
           url: article.url,
@@ -84,7 +77,8 @@ export default function SportsWidget() {
         };
       });
       
-      console.log(`[SportsWidget] Final news array:`, news);
+      console.log(`[SportsWidget] Final news array (${news.length} articles):`, 
+        news.slice(0, 3).map(n => n.title).join(', '));
 
       // Fetch team info and schedule
       const teamInfoResponse = await fetch(`/api/espn-team-info?sport=${sport}&league=${league}&teamId=${teamId}`);
@@ -107,36 +101,93 @@ export default function SportsWidget() {
 
       // Find current or next game
       let game: Game | undefined;
+      let isLiveGame = false;
 
-      // First, check today's scoreboard for live/current games
-      const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
-      const scoreboardResponse = await fetch(`/api/espn-scoreboard?sport=${sport}&league=${league}&dates=${today}`);
-      const scoreboardData = await scoreboardResponse.json();
+      // Helper function to check if a game is live/in progress
+      const checkIfLive = (competition: any): boolean => {
+        const status = competition?.status;
+        const statusType = status?.type;
+        const statusDesc = (statusType?.description || statusType?.shortDetail || '').toLowerCase();
+        const statusId = statusType?.id || '';
+        
+        // Check various indicators of live games
+        const isLive = 
+          statusId === '1' || // In progress status ID
+          statusDesc.includes('live') ||
+          statusDesc.includes('in progress') ||
+          statusDesc.includes('qtr') ||
+          statusDesc.includes('quarter') ||
+          statusDesc.includes('inning') ||
+          statusDesc.includes('period') ||
+          statusDesc.includes('halftime') ||
+          statusDesc.includes('halftime') ||
+          (statusDesc.includes('end') && !statusDesc.includes('final')) ||
+          (competition.competitors?.some((c: any) => c.score !== undefined && c.score !== null && c.score !== '0') && 
+           !statusDesc.includes('final') && 
+           !statusDesc.includes('scheduled') &&
+           !statusDesc.includes('postponed'));
+        
+        return isLive;
+      };
 
-      if (scoreboardData.events) {
-        const teamGame = scoreboardData.events.find((event: any) => {
-          return event.competitions?.[0]?.competitors?.some((comp: any) => comp.team?.id === teamId);
-        });
+      // Check today and yesterday's scoreboards for live games (games can span days)
+      const today = new Date();
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      
+      const dateStrings = [
+        today.toISOString().split('T')[0].replace(/-/g, ''),
+        yesterday.toISOString().split('T')[0].replace(/-/g, ''),
+      ];
 
-        if (teamGame) {
-          const competition = teamGame.competitions[0];
-          const homeComp = competition.competitors.find((c: any) => c.homeAway === 'home');
-          const awayComp = competition.competitors.find((c: any) => c.homeAway === 'away');
+      // Check scoreboards for live games
+      for (const dateStr of dateStrings) {
+        try {
+          const scoreboardResponse = await fetch(`/api/espn-scoreboard?sport=${sport}&league=${league}&dates=${dateStr}`);
+          const scoreboardData = await scoreboardResponse.json();
 
-          game = {
-            homeTeam: homeComp?.team?.displayName || homeComp?.team?.name || 'TBD',
-            awayTeam: awayComp?.team?.displayName || awayComp?.team?.name || 'TBD',
-            homeScore: homeComp?.score ? parseInt(homeComp.score) : undefined,
-            awayScore: awayComp?.score ? parseInt(awayComp.score) : undefined,
-            status: competition.status?.type?.description || competition.status?.type?.shortDetail || 'Scheduled',
-            date: teamGame.date,
-            eventId: teamGame.id,
-          };
+          if (scoreboardData.events) {
+            const teamGame = scoreboardData.events.find((event: any) => {
+              return event.competitions?.[0]?.competitors?.some((comp: any) => comp.team?.id === teamId);
+            });
+
+            if (teamGame) {
+              const competition = teamGame.competitions[0];
+              const homeComp = competition.competitors.find((c: any) => c.homeAway === 'home');
+              const awayComp = competition.competitors.find((c: any) => c.homeAway === 'away');
+
+              // Check if this is a live game
+              const gameIsLive = checkIfLive(competition);
+              
+              // Only set scores if game is live
+              const homeScore = gameIsLive && homeComp?.score ? parseInt(homeComp.score) : undefined;
+              const awayScore = gameIsLive && awayComp?.score ? parseInt(awayComp.score) : undefined;
+
+              game = {
+                homeTeam: homeComp?.team?.displayName || homeComp?.team?.name || 'TBD',
+                awayTeam: awayComp?.team?.displayName || awayComp?.team?.name || 'TBD',
+                homeScore,
+                awayScore,
+                status: competition.status?.type?.description || competition.status?.type?.shortDetail || 'Scheduled',
+                date: teamGame.date,
+                eventId: teamGame.id,
+              };
+              
+              isLiveGame = gameIsLive;
+              
+              // If we found a live game, stop searching
+              if (isLiveGame) {
+                break;
+              }
+            }
+          }
+        } catch (error) {
+          console.error(`Error fetching scoreboard for ${dateStr}:`, error);
         }
       }
 
-      // If no current game, check schedule for next game
-      if (!game && teamInfoData.schedule?.events) {
+      // If no live game found, check schedule for next game (but don't show scores)
+      if (!isLiveGame && teamInfoData.schedule?.events) {
         const upcomingGame = teamInfoData.schedule.events.find((event: any) => {
           const eventDate = new Date(event.date);
           return eventDate >= new Date();
@@ -150,8 +201,8 @@ export default function SportsWidget() {
           game = {
             homeTeam: homeComp?.team?.displayName || homeComp?.team?.name || 'TBD',
             awayTeam: awayComp?.team?.displayName || awayComp?.team?.name || 'TBD',
-            homeScore: homeComp?.score ? parseInt(homeComp.score) : undefined,
-            awayScore: awayComp?.score ? parseInt(awayComp.score) : undefined,
+            homeScore: undefined, // Don't show scores for scheduled games
+            awayScore: undefined, // Don't show scores for scheduled games
             status: competition?.status?.type?.description || competition?.status?.type?.shortDetail || 'Scheduled',
             date: upcomingGame.date,
             eventId: upcomingGame.id,
@@ -166,10 +217,21 @@ export default function SportsWidget() {
     }
   }, []);
 
-  const fetchAllTeamsData = useCallback(async () => {
+  const fetchAllTeamsData = useCallback(async (forceRefresh = false) => {
     if (teamPreferences.selectedTeams.length === 0) {
       setLoading(false);
       return;
+    }
+
+    // If force refresh, always fetch new data (bypass all cache checks)
+    if (!forceRefresh && sports) {
+      const cacheAge = Date.now() - sports.timestamp;
+      // For live games, reduce cache time to 10 seconds; otherwise 30 seconds
+      const minCacheAge = 10 * 1000; // 10 seconds for live updates
+      if (cacheAge < minCacheAge) {
+        console.log(`[SportsWidget] Skipping refresh - cache is only ${cacheAge}ms old`);
+        return;
+      }
     }
 
     setLoading(true); // Ensure loading state is set
@@ -298,7 +360,8 @@ export default function SportsWidget() {
         // Also check if colors are missing (might be old cache)
         const hasColors = sports.teams.every(t => t.color && t.color.trim() !== '');
         const cacheAge = Date.now() - sports.timestamp;
-        const isCacheStale = cacheAge > 5 * 60 * 1000; // 5 minutes
+        // Reduce cache time to 2 minutes to ensure records and news stay fresh
+        const isCacheStale = cacheAge > 2 * 60 * 1000; // 2 minutes
         
         if (cachedTeamIds !== currentTeamIds || !hasColors || isCacheStale) {
           // Preferences changed, colors missing, or cache is stale - refetch
@@ -312,6 +375,38 @@ export default function SportsWidget() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sports, teamPreferences.selectedTeams]);
+
+  // Auto-refresh for live games, records, and news
+  useEffect(() => {
+    if (teamPreferences.selectedTeams.length === 0) return;
+
+    // Check if any team has a live game in progress (has actual scores)
+    const hasLiveGame = sports?.teams?.some(team => {
+      if (!team.game) return false;
+      // Only consider it live if scores are actually present (not undefined)
+      return team.game.homeScore !== undefined || team.game.awayScore !== undefined;
+    }) || false;
+
+    // Refresh intervals:
+    // - Live games: every 15 seconds (for scores - more frequent)
+    // - No live games: every 2 minutes (for records and news updates)
+    const refreshInterval = hasLiveGame ? 15 * 1000 : 2 * 60 * 1000;
+
+    // Immediate refresh if we have a live game and no data yet
+    if (hasLiveGame && (!sports || sports.teams.length === 0)) {
+      fetchAllTeamsData(true);
+    }
+
+    const interval = setInterval(() => {
+      // Always force refresh to bypass cache and get latest data
+      if (teamPreferences.selectedTeams.length > 0) {
+        console.log(`[SportsWidget] Auto-refreshing (hasLiveGame: ${hasLiveGame}, interval: ${refreshInterval}ms)`);
+        fetchAllTeamsData(true);
+      }
+    }, refreshInterval);
+
+    return () => clearInterval(interval);
+  }, [sports, teamPreferences.selectedTeams, fetchAllTeamsData]);
 
   const nextTeam = () => {
     if (!sports) return;
@@ -459,7 +554,7 @@ export default function SportsWidget() {
               style={{ backgroundColor: 'rgba(0, 0, 0, 0.2)' }}
             >
               <div className="text-xs font-semibold opacity-90 mb-2">
-                {currentTeam.game.homeScore !== undefined || currentTeam.game.awayScore !== undefined ? 'Current Game' : 'Next Game'}
+                {currentTeam.game.homeScore !== undefined || currentTeam.game.awayScore !== undefined ? 'Live Game' : 'Next Game'}
               </div>
               <div className="flex items-center justify-between mb-2">
                 <div className="flex-1">

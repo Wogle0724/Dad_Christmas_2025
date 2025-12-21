@@ -16,35 +16,66 @@ export async function GET(request: NextRequest) {
     const sport = searchParams.get('sport') || 'baseball';
     const league = searchParams.get('league') || 'mlb';
     const teamId = searchParams.get('teamId');
-    const limit = searchParams.get('limit') || '5';
+    const limit = searchParams.get('limit') || '100';
 
     console.log(`[ESPN News API] Fetching news for sport=${sport}, league=${league}, teamId=${teamId}, limit=${limit}`);
 
-    // Try multiple endpoint formats
-    const endpoints: string[] = [];
+    // Get team info if teamId is provided (to filter articles)
+    let teamInfo: any = null;
+    let teamSearchTerms: string[] = [];
     
     if (teamId) {
-      // Try team-specific endpoints first, but fallback to league-wide
-      endpoints.push(
-        `https://site.api.espn.com/apis/site/v2/sports/${sport}/${league}/teams/${teamId}/news?limit=${limit}`,
-        `https://site.api.espn.com/apis/site/v2/sports/${sport}/${league}/teams/${teamId}/news`
-      );
-    }
-    
-    // Always include league-wide news as fallback (this endpoint actually works)
-    endpoints.push(
-      `https://site.api.espn.com/apis/site/v2/sports/${sport}/${league}/news?limit=${limit}`,
-      `https://site.api.espn.com/apis/site/v2/sports/${sport}/${league}/news`
-    );
+      try {
+        const teamUrl = `https://site.api.espn.com/apis/site/v2/sports/${sport}/${league}/teams/${teamId}`;
+        const teamResponse = await fetch(teamUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (compatible; DadDashboard/1.0)',
+          },
+        });
 
+        if (teamResponse.ok) {
+          const teamData = await teamResponse.json();
+          teamInfo = teamData.team;
+          
+          // Build search terms from team info
+          if (teamInfo) {
+            if (teamInfo.displayName) teamSearchTerms.push(teamInfo.displayName);
+            if (teamInfo.name) teamSearchTerms.push(teamInfo.name);
+            if (teamInfo.shortDisplayName) teamSearchTerms.push(teamInfo.shortDisplayName);
+            if (teamInfo.location) teamSearchTerms.push(teamInfo.location);
+            if (teamInfo.abbreviation) teamSearchTerms.push(teamInfo.abbreviation);
+            // Add common variations (e.g., "Padres" from "San Diego Padres")
+            if (teamInfo.displayName) {
+              const parts = teamInfo.displayName.split(' ');
+              parts.forEach((part: string) => {
+                if (part.length > 3) teamSearchTerms.push(part);
+              });
+            }
+          }
+          
+          console.log(`[ESPN News API] Team info loaded:`, {
+            displayName: teamInfo?.displayName,
+            abbreviation: teamInfo?.abbreviation,
+            searchTerms: teamSearchTerms,
+          });
+        }
+      } catch (error) {
+        console.log(`[ESPN News API] Error fetching team info:`, error);
+        // Continue without team info - will just return all league news
+      }
+    }
+
+    // Fetch league-wide news (this is the only endpoint that works)
     let data: any = null;
     let lastError: Error | null = null;
-    let successfulUrl: string | null = null;
+    
+    const leagueEndpoints = [
+      `https://site.api.espn.com/apis/site/v2/sports/${sport}/${league}/news`, // No limit - get all available articles
+    ];
 
-    // Try each endpoint until one works
-    for (const url of endpoints) {
+    for (const url of leagueEndpoints) {
       try {
-        console.log(`[ESPN News API] Trying endpoint: ${url}`);
+        console.log(`[ESPN News API] Fetching league-wide news from: ${url}`);
         const response = await fetch(url, {
           headers: {
             'User-Agent': 'Mozilla/5.0 (compatible; DadDashboard/1.0)',
@@ -52,52 +83,34 @@ export async function GET(request: NextRequest) {
         });
 
         if (!response.ok) {
-          console.log(`[ESPN News API] Endpoint returned status ${response.status}: ${url}`);
+          console.log(`[ESPN News API] League endpoint returned status ${response.status}: ${url}`);
           continue;
         }
 
-        data = await response.json();
-        successfulUrl = url;
-        console.log(`[ESPN News API] Successfully fetched from: ${url}`);
-        console.log(`[ESPN News API] Response keys:`, Object.keys(data));
+        const leagueData = await response.json();
+        console.log(`[ESPN News API] Successfully fetched league-wide news from: ${url}`);
+        console.log(`[ESPN News API] Response keys:`, Object.keys(leagueData));
         
-        // Check for articles in various possible locations
-        const hasArticles = data.articles || data.headlines || data.items || (Array.isArray(data) && data.length > 0);
+        // Check for articles
+        const hasArticles = leagueData.articles || leagueData.headlines || leagueData.items || 
+                           (Array.isArray(leagueData) && leagueData.length > 0);
         
         if (hasArticles) {
-          // Check if response is empty object (team-specific endpoints often return {})
-          if (Object.keys(data).length === 0) {
-            console.log(`[ESPN News API] Empty response from: ${url}, trying next endpoint`);
-            continue;
-          }
-          
-          const articleCount = data.articles?.length || data.headlines?.length || data.items?.length || (Array.isArray(data) ? data.length : 0);
-          console.log(`[ESPN News API] Found ${articleCount} articles in response`);
-          if (articleCount > 0) {
-            console.log(`[ESPN News API] First article sample:`, JSON.stringify(
-              data.articles?.[0] || data.headlines?.[0] || data.items?.[0] || data[0],
-              null, 2
-            ).substring(0, 500));
-          }
+          const articleCount = leagueData.articles?.length || leagueData.headlines?.length || 
+                             leagueData.items?.length || (Array.isArray(leagueData) ? leagueData.length : 0);
+          console.log(`[ESPN News API] Found ${articleCount} league-wide articles`);
+          data = leagueData;
           break;
-        } else {
-          console.log(`[ESPN News API] No articles found in response from: ${url}`);
-          // If it's an empty object, log that
-          if (Object.keys(data).length === 0) {
-            console.log(`[ESPN News API] Response is empty object {}`);
-          } else {
-            console.log(`[ESPN News API] Response structure:`, JSON.stringify(data, null, 2).substring(0, 500));
-          }
         }
       } catch (error) {
-        console.log(`[ESPN News API] Error with endpoint ${url}:`, error);
+        console.log(`[ESPN News API] Error with league endpoint ${url}:`, error);
         lastError = error as Error;
         continue;
       }
     }
 
     if (!data) {
-      throw lastError || new Error('All endpoints failed');
+      throw lastError || new Error('Failed to fetch league news');
     }
 
     // Try to extract articles from various possible response structures
@@ -139,8 +152,72 @@ export async function GET(request: NextRequest) {
       console.log(`[ESPN News API] First article sample:`, JSON.stringify(articles[0], null, 2));
     }
 
+    // Helper function to check if article is about the team
+    const isArticleAboutTeam = (article: any): boolean => {
+      if (teamSearchTerms.length === 0) return false;
+      
+      // Build comprehensive search text from all article fields
+      const searchText = [
+        article.headline || '',
+        article.title || '',
+        article.name || '',
+        article.description || '',
+        article.summary || '',
+        article.byline || '',
+      ].join(' ').toLowerCase();
+      
+      // Check if any team search term appears in the article
+      // Use word boundaries for better matching (avoid partial matches)
+      return teamSearchTerms.some(term => {
+        const lowerTerm = term.toLowerCase().trim();
+        if (lowerTerm.length < 2) return false;
+        
+        // Check for exact word match or phrase match
+        // For longer terms (like "San Diego Padres"), check for phrase
+        // For shorter terms (like "SD"), check for word boundary
+        if (lowerTerm.length >= 5) {
+          // Longer terms: check for phrase match
+          return searchText.includes(lowerTerm);
+        } else {
+          // Shorter terms: check for word boundary match
+          const regex = new RegExp(`\\b${lowerTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+          return regex.test(searchText);
+        }
+      });
+    };
+
+    // Separate articles into team-related and other
+    const teamArticles: any[] = [];
+    const otherArticles: any[] = [];
+    
+    articles.forEach((article: any) => {
+      if (isArticleAboutTeam(article)) {
+        teamArticles.push(article);
+      } else {
+        otherArticles.push(article);
+      }
+    });
+
+    console.log(`[ESPN News API] Filtered articles: ${teamArticles.length} team-related, ${otherArticles.length} other`);
+    
+    // Log first few team articles for verification
+    if (teamArticles.length > 0) {
+      console.log(`[ESPN News API] First team article:`, teamArticles[0].headline || teamArticles[0].title);
+    }
+    if (otherArticles.length > 0) {
+      console.log(`[ESPN News API] First other article:`, otherArticles[0].headline || otherArticles[0].title);
+    }
+
+    // Combine: team articles first, then others (no limit - return all articles)
+    const prioritizedArticles = [
+      ...teamArticles,
+      ...otherArticles
+    ];
+    
+    console.log(`[ESPN News API] Final prioritized articles: ${prioritizedArticles.length} total (${teamArticles.length} team-first, ${otherArticles.length} other)`);
+
     // Transform the data to a consistent format
-    const transformedArticles = articles.map((article: any, index: number) => {
+    const transformedArticles = prioritizedArticles.map((article: any, index: number) => {
       // Log the structure of each article to understand the format
       if (index === 0) {
         console.log(`[ESPN News API] Article structure (first article):`, {

@@ -110,6 +110,21 @@ export default function ConcertsWidget() {
         new Map(allEvents.map(event => [event.id, event])).values()
       );
       
+      // Filter out past concerts - only show future concerts
+      const now = new Date();
+      const upcomingEvents = uniqueEvents.filter(event => {
+        try {
+          const eventDate = new Date(event.date);
+          // Include events that are today or in the future (with 1 hour buffer for timezone issues)
+          return eventDate.getTime() >= (now.getTime() - 60 * 60 * 1000);
+        } catch {
+          // If date parsing fails, include it (better to show than hide)
+          return true;
+        }
+      });
+      
+      console.log(`[ConcertsWidget] Filtered ${uniqueEvents.length - upcomingEvents.length} past concerts, ${upcomingEvents.length} upcoming`);
+      
       // Sort and prioritize: favorite artists first, then favorite genres, then everything else
       const favoriteArtistsLower = concertPreferences.favoriteArtists.map(a => a.toLowerCase());
       const favoriteGenresLower = concertPreferences.favoriteGenres.map(g => g.toLowerCase());
@@ -128,7 +143,7 @@ export default function ConcertsWidget() {
         return 3; // Lowest priority - everything else
       };
       
-      const sortedEvents = uniqueEvents.sort((a, b) => {
+      const sortedEvents = upcomingEvents.sort((a, b) => {
         const aPriority = getEventPriority(a);
         const bPriority = getEventPriority(b);
         
@@ -152,15 +167,41 @@ export default function ConcertsWidget() {
   }, [concertPreferences]);
 
   useEffect(() => {
-    // Check cache first
+    // Check if this is a page reload
+    const lastLoadTime = sessionStorage.getItem('last_page_load');
+    const isPageReload = lastLoadTime !== null;
+    
+    // On page reload, clear cache and fetch fresh data
+    if (isPageReload) {
+      console.log('[ConcertsWidget] Page reload detected - clearing cache for fresh data');
+      localStorage.removeItem('cached_concerts');
+      fetchConcerts();
+      return;
+    }
+    
+    // Check cache first (only on initial load, not reload)
     const cached = localStorage.getItem('cached_concerts');
     if (cached) {
       const data = JSON.parse(cached);
       const age = Date.now() - data.timestamp;
       if (age < CACHE_STALENESS_DURATION) {
-        setConcerts(data);
-        setLoading(false);
-        return;
+        // Also filter out any past concerts from cached data
+        const now = new Date();
+        const upcomingEvents = (data.events || []).filter((event: ConcertEvent) => {
+          try {
+            const eventDate = new Date(event.date);
+            return eventDate.getTime() >= (now.getTime() - 60 * 60 * 1000);
+          } catch {
+            return true;
+          }
+        });
+        
+        if (upcomingEvents.length > 0) {
+          setConcerts({ ...data, events: upcomingEvents });
+          setLoading(false);
+          return;
+        }
+        // If all cached events are past, fetch fresh
       }
     }
     
