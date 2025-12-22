@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Calendar as CalendarIcon, MapPin, Clock } from 'lucide-react';
 import { useDataCache } from '@/lib/DataCacheContext';
 
@@ -21,28 +21,7 @@ export default function CalendarWidget() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    // Reset loading state when preferences change
-    setLoading(true);
-    setError(null);
-    
-    if (calendarPreferences.calendarIds.length > 0) {
-      console.log('[CalendarWidget] Preferences changed, fetching events...', {
-        calendarIds: calendarPreferences.calendarIds.length,
-        hasAccessToken: !!calendarPreferences.accessToken,
-        hasRefreshToken: !!calendarPreferences.refreshToken,
-      });
-      fetchCalendarEvents();
-      // Refresh every 5 minutes
-      const interval = setInterval(fetchCalendarEvents, 5 * 60 * 1000);
-      return () => clearInterval(interval);
-    } else {
-      setLoading(false);
-      setError('No calendars configured. Add calendars in Settings → Calendar.');
-    }
-  }, [calendarPreferences.calendarIds, calendarPreferences.accessToken, calendarPreferences.refreshToken]);
-
-  const refreshAccessToken = async (refreshToken: string): Promise<string | null> => {
+  const refreshAccessToken = useCallback(async (refreshToken: string): Promise<string | null> => {
     try {
       const response = await fetch('/api/google-oauth/refresh', {
         method: 'POST',
@@ -59,12 +38,12 @@ export default function CalendarWidget() {
       const data = await response.json();
       return data.access_token;
     } catch (err) {
-      console.error('Error refreshing token:', err);
+      console.error('[CalendarWidget] Error refreshing token:', err);
       return null;
     }
-  };
+  }, []);
 
-  const fetchCalendarEvents = async () => {
+  const fetchCalendarEvents = useCallback(async () => {
     if (calendarPreferences.calendarIds.length === 0) {
       setLoading(false);
       setError('No calendars configured');
@@ -164,7 +143,29 @@ export default function CalendarWidget() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [calendarPreferences, setCalendarPreferences, refreshAccessToken]);
+
+  useEffect(() => {
+    // Reset loading state when preferences change
+    setLoading(true);
+    setError(null);
+    
+    if (calendarPreferences.calendarIds.length > 0) {
+      console.log('[CalendarWidget] Preferences changed, fetching events...', {
+        calendarIds: calendarPreferences.calendarIds.length,
+        hasAccessToken: !!calendarPreferences.accessToken,
+        hasRefreshToken: !!calendarPreferences.refreshToken,
+        tokenExpiry: calendarPreferences.tokenExpiry,
+      });
+      fetchCalendarEvents();
+      // Refresh every 5 minutes
+      const interval = setInterval(fetchCalendarEvents, 5 * 60 * 1000);
+      return () => clearInterval(interval);
+    } else {
+      setLoading(false);
+      setError('No calendars configured. Add calendars in Settings → Calendar.');
+    }
+  }, [calendarPreferences.calendarIds, calendarPreferences.accessToken, calendarPreferences.refreshToken, calendarPreferences.tokenExpiry, fetchCalendarEvents]);
 
   const formatDate = (dateString: string, isAllDay: boolean) => {
     const date = new Date(dateString);
