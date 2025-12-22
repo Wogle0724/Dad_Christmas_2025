@@ -54,3 +54,32 @@ CREATE POLICY "Authenticated users can manage notes" ON notes
   USING (true)
   WITH CHECK (true);
 
+-- Create user_preferences table for storing all user settings
+CREATE TABLE IF NOT EXISTS user_preferences (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id TEXT DEFAULT 'default' UNIQUE NOT NULL,
+  password TEXT NOT NULL,
+  team_preferences JSONB DEFAULT '{"selectedTeams": [], "favoriteTeams": []}'::jsonb,
+  appearance_preferences JSONB DEFAULT '{"darkMode": false, "showWeather": true, "showSports": true, "showNotes": true, "showMotivation": true, "showConcerts": true, "showCalendar": true, "dashboardName": "Dad Dashboard", "widgetOrder": ["weather", "sports", "concerts", "motivation"], "leftPanelOrder": ["calendar", "notes"]}'::jsonb,
+  concert_preferences JSONB DEFAULT '{"favoriteArtists": [], "favoriteGenres": [], "location": {}}'::jsonb,
+  calendar_preferences JSONB DEFAULT '{"calendarIds": []}'::jsonb,
+  messages JSONB DEFAULT '[]'::jsonb,
+  notes JSONB DEFAULT '[]'::jsonb,
+  daily_motivation TEXT,
+  daily_motivation_date TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Create index for user_preferences
+CREATE INDEX IF NOT EXISTS idx_user_preferences_user_id ON user_preferences(user_id);
+
+-- Enable RLS for user_preferences
+ALTER TABLE user_preferences ENABLE ROW LEVEL SECURITY;
+
+-- Policy: Allow all operations (single-user app)
+CREATE POLICY "Allow all operations on user_preferences" ON user_preferences
+  FOR ALL
+  USING (true)
+  WITH CHECK (true);
+

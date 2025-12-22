@@ -2,7 +2,20 @@
 // For now, we'll use a simple password check
 // You should replace this with proper authentication
 
+import { getPassword, updatePassword as updatePasswordDb } from '@/lib/db';
+
 async function getStoredPassword(): Promise<string> {
+  try {
+    // Try to get from Supabase first
+    const password = await getPassword();
+    if (password) {
+      return password;
+    }
+  } catch (error) {
+    console.error('Error fetching password from database:', error);
+  }
+  
+  // Fallback: try API route (which will use JSON file if Supabase not configured)
   try {
     const response = await fetch('/api/user-data?section=password');
     if (response.ok) {
@@ -10,9 +23,10 @@ async function getStoredPassword(): Promise<string> {
       return data.password || process.env.NEXT_PUBLIC_DASHBOARD_PASSWORD || 'dad2025';
     }
   } catch (error) {
-    console.error('Error fetching password:', error);
+    console.error('Error fetching password from API:', error);
   }
-  // Fallback to env or default
+  
+  // Final fallback to env or default
   return process.env.NEXT_PUBLIC_DASHBOARD_PASSWORD || 'dad2025';
 }
 
@@ -26,6 +40,17 @@ export function changePassword(currentPassword: string, newPassword: string): Pr
     const correctPassword = await getStoredPassword();
     if (currentPassword === correctPassword) {
       try {
+        // Try Supabase first
+        try {
+          await updatePasswordDb(newPassword);
+          resolve(true);
+          return;
+        } catch (dbError) {
+          console.error('Error updating password in database:', dbError);
+          // Fall through to API route
+        }
+        
+        // Fallback to API route (which will use JSON file if Supabase not configured)
         const response = await fetch('/api/user-data', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
