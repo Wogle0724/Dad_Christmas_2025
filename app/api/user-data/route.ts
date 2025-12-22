@@ -69,16 +69,21 @@ async function ensureUserDataFile(): Promise<void> {
 // GET: Retrieve all user data or specific section
 export async function GET(request: NextRequest) {
   try {
+    console.log('[API] GET /api/user-data - Supabase configured:', isSupabaseConfigured());
+    
     // Try Supabase first if configured
     if (isSupabaseConfigured()) {
+      console.log('[API] Attempting to fetch from Supabase...');
       let prefs = await getUserPreferences();
       
       // Create default preferences if they don't exist
       if (!prefs) {
+        console.log('[API] No preferences found - creating defaults in Supabase');
         prefs = await createDefaultPreferences();
       }
       
       const section = request.nextUrl.searchParams.get('section');
+      console.log('[API] Requested section:', section || 'all');
       
       if (section) {
         if (section === 'password') {
@@ -128,10 +133,12 @@ export async function GET(request: NextRequest) {
     }
     
     // Fallback to JSON file if Supabase not configured
+    console.log('[API] Supabase not configured - falling back to JSON file');
     await ensureUserDataFile();
     const filePath = getUserDataFilePath();
     const data = await fs.readFile(filePath, 'utf-8');
     const userData = JSON.parse(data);
+    console.log('[API] Loaded data from JSON file');
     
     const section = request.nextUrl.searchParams.get('section');
     if (section) {
@@ -172,7 +179,10 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { section, data: sectionData } = body;
     
+    console.log('[API] POST /api/user-data - Section:', section, 'Supabase configured:', isSupabaseConfigured());
+    
     if (!section) {
+      console.error('[API] Missing section parameter');
       return NextResponse.json(
         { error: 'Section parameter required' },
         { status: 400 }
@@ -182,10 +192,12 @@ export async function POST(request: NextRequest) {
     // Try Supabase first if configured
     if (isSupabaseConfigured()) {
       try {
+        console.log('[API] Attempting to update Supabase...');
         let prefs = await getUserPreferences();
         
         // Create default preferences if they don't exist
         if (!prefs) {
+          console.log('[API] No preferences found - creating defaults before update');
           prefs = await createDefaultPreferences();
         }
         
@@ -202,21 +214,26 @@ export async function POST(request: NextRequest) {
         
         // Handle dailyMotivation specially
         if (section === 'dailyMotivation' && sectionData && typeof sectionData === 'object') {
+          console.log('[API] Updating dailyMotivation (special handling)');
           await updateUserPreferencesSection('daily_motivation', sectionData.motivation);
           await updateUserPreferencesSection('daily_motivation_date', sectionData.date);
         } else {
           const dbColumn = sectionMap[section] || section;
+          console.log(`[API] Updating ${section} -> ${dbColumn} in Supabase`);
           await updateUserPreferencesSection(dbColumn as any, sectionData);
         }
         
+        console.log('[API] Successfully updated Supabase');
         return NextResponse.json({ success: true });
       } catch (dbError) {
-        console.error('Supabase update failed, falling back to JSON:', dbError);
+        console.error('[API] Supabase update failed, falling back to JSON:', dbError);
+        console.error('[API] Error details:', JSON.stringify(dbError, null, 2));
         // Fall through to JSON file fallback
       }
     }
     
     // Fallback to JSON file
+    console.log('[API] Using JSON file fallback for update');
     await ensureUserDataFile();
     const filePath = getUserDataFilePath();
     
@@ -224,7 +241,9 @@ export async function POST(request: NextRequest) {
     try {
       const existing = await fs.readFile(filePath, 'utf-8');
       userData = JSON.parse(existing);
+      console.log('[API] Loaded existing JSON file');
     } catch {
+      console.log('[API] JSON file doesn\'t exist - will create new one');
       // File doesn't exist, will be created
     }
     
@@ -237,6 +256,7 @@ export async function POST(request: NextRequest) {
     }
     
     await fs.writeFile(filePath, JSON.stringify(userData, null, 2), 'utf-8');
+    console.log('[API] Successfully updated JSON file');
     
     return NextResponse.json({ success: true });
   } catch (error) {

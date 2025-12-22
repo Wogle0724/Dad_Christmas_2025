@@ -66,10 +66,12 @@ const DEFAULT_USER_ID = 'default';
 
 export async function getUserPreferences(): Promise<UserPreferences | null> {
   if (!supabase) {
+    console.log('[DB] Supabase not configured - returning null');
     return null;
   }
 
   try {
+    console.log('[DB] Fetching user preferences from Supabase...');
     const { data, error } = await supabase
       .from('user_preferences')
       .select('*')
@@ -79,23 +81,29 @@ export async function getUserPreferences(): Promise<UserPreferences | null> {
     if (error) {
       if (error.code === 'PGRST116') {
         // No rows found - return null to create default
+        console.log('[DB] No user preferences found in database - will create defaults');
         return null;
       }
-      console.error('Error fetching user preferences:', error);
+      console.error('[DB] Error fetching user preferences:', error);
+      console.error('[DB] Error details:', JSON.stringify(error, null, 2));
       return null;
     }
 
+    console.log('[DB] Successfully fetched user preferences from Supabase');
     return data;
   } catch (error) {
-    console.error('Error in getUserPreferences:', error);
+    console.error('[DB] Exception in getUserPreferences:', error);
     return null;
   }
 }
 
 export async function createDefaultPreferences(): Promise<UserPreferences> {
   if (!supabase) {
+    console.error('[DB] Cannot create default preferences - Supabase not configured');
     throw new Error('Supabase not configured');
   }
+
+  console.log('[DB] Creating default user preferences in Supabase...');
 
   const defaultPrefs: Omit<UserPreferences, 'id' | 'created_at' | 'updated_at'> = {
     user_id: DEFAULT_USER_ID,
@@ -137,10 +145,12 @@ export async function createDefaultPreferences(): Promise<UserPreferences> {
     .single();
 
   if (error) {
-    console.error('Error creating default preferences:', error);
+    console.error('[DB] Error creating default preferences:', error);
+    console.error('[DB] Error details:', JSON.stringify(error, null, 2));
     throw error;
   }
 
+  console.log('[DB] Successfully created default user preferences');
   return data;
 }
 
@@ -149,9 +159,11 @@ export async function updateUserPreferencesSection(
   data: any
 ): Promise<void> {
   if (!supabase) {
+    console.error(`[DB] Cannot update ${section} - Supabase not configured`);
     throw new Error('Supabase not configured');
   }
 
+  console.log(`[DB] Updating ${section} in Supabase...`);
   const updateData: any = {
     [section]: data,
     updated_at: new Date().toISOString(),
@@ -163,26 +175,32 @@ export async function updateUserPreferencesSection(
     .eq('user_id', DEFAULT_USER_ID);
 
   if (error) {
-    console.error(`Error updating ${section}:`, error);
+    console.error(`[DB] Error updating ${section}:`, error);
+    console.error(`[DB] Error details:`, JSON.stringify(error, null, 2));
     throw error;
   }
+
+  console.log(`[DB] Successfully updated ${section}`);
 }
 
 export async function getPassword(): Promise<string> {
   if (!supabase) {
-    // Fallback to env variable
+    console.log('[DB] Supabase not configured - using env variable for password');
     return process.env.DASHBOARD_PASSWORD || process.env.NEXT_PUBLIC_DASHBOARD_PASSWORD || 'dad2025';
   }
 
   try {
+    console.log('[DB] Fetching password from Supabase...');
     const prefs = await getUserPreferences();
     if (!prefs) {
+      console.log('[DB] No preferences found - creating defaults');
       const defaultPrefs = await createDefaultPreferences();
       return defaultPrefs.password;
     }
+    console.log('[DB] Successfully retrieved password from Supabase');
     return prefs.password;
   } catch (error) {
-    console.error('Error getting password:', error);
+    console.error('[DB] Error getting password:', error);
     // Fallback to env variable
     return process.env.DASHBOARD_PASSWORD || process.env.NEXT_PUBLIC_DASHBOARD_PASSWORD || 'dad2025';
   }
@@ -190,9 +208,12 @@ export async function getPassword(): Promise<string> {
 
 export async function updatePassword(newPassword: string): Promise<void> {
   if (!supabase) {
+    console.error('[DB] Cannot update password - Supabase not configured');
     throw new Error('Supabase not configured');
   }
 
+  console.log('[DB] Updating password in Supabase...');
   await updateUserPreferencesSection('password', newPassword);
+  console.log('[DB] Password successfully updated in Supabase');
 }
 

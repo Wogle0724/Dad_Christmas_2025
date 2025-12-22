@@ -186,17 +186,26 @@ export function DataCacheProvider({ children }: { children: ReactNode }) {
 
     // Load preferences from server (universal across devices)
     const loadPreferences = async () => {
+      console.log('[DataCache] Loading preferences from server (Supabase/API)...');
       try {
-        const response = await fetch('/api/user-data');
+        const response = await fetch('/api/user-data', { 
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache',
+          },
+        });
         if (response.ok) {
           const userData = await response.json();
+          console.log('[DataCache] Successfully loaded preferences from server');
           
           // Load team preferences
           if (userData.teamPreferences) {
+            console.log('[DataCache] Loading team preferences:', userData.teamPreferences);
             const prefs = userData.teamPreferences;
             // Migrate old format if needed
             const needsMigration = prefs.selectedTeams?.some((id: string) => !id.includes('-'));
             if (needsMigration) {
+              console.log('[DataCache] Migrating team preferences format');
               const migratedPrefs: TeamPreferences = {
                 selectedTeams: [],
                 favoriteTeams: [],
@@ -212,6 +221,7 @@ export function DataCacheProvider({ children }: { children: ReactNode }) {
               setTeamPreferencesState(prefs);
             }
           } else {
+            console.log('[DataCache] No team preferences found - using defaults');
             // Default: San Diego Padres
             const defaultPrefs: TeamPreferences = {
               selectedTeams: ['25-baseball-mlb'],
@@ -227,6 +237,7 @@ export function DataCacheProvider({ children }: { children: ReactNode }) {
           
           // Load appearance preferences
           if (userData.appearancePreferences) {
+            console.log('[DataCache] Loading appearance preferences:', userData.appearancePreferences);
             const prefs = userData.appearancePreferences;
             setAppearancePreferencesState({
               darkMode: prefs.darkMode || false,
@@ -240,24 +251,30 @@ export function DataCacheProvider({ children }: { children: ReactNode }) {
               widgetOrder: prefs.widgetOrder || ['weather', 'sports', 'concerts', 'motivation'],
               leftPanelOrder: prefs.leftPanelOrder || (prefs.calendarNotesOrder === 'notes-first' ? ['notes', 'calendar'] : ['calendar', 'notes']),
             });
+          } else {
+            console.log('[DataCache] No appearance preferences found - using defaults');
           }
           
           // Load concert preferences
           if (userData.concertPreferences) {
+            console.log('[DataCache] Loading concert preferences');
             setConcertPreferencesState(userData.concertPreferences);
           }
           
           // Load calendar preferences
           if (userData.calendarPreferences) {
+            console.log('[DataCache] Loading calendar preferences');
             setCalendarPreferencesState(userData.calendarPreferences);
           }
         } else {
+          console.error('[DataCache] Failed to load preferences from server:', response.status, response.statusText);
           // Fallback to localStorage for migration
           const cachedTeamPrefs = localStorage.getItem('team_preferences');
           const cachedAppearancePrefs = localStorage.getItem('appearance_preferences');
           const cachedConcertPrefs = localStorage.getItem('concert_preferences');
           const cachedCalendarPrefs = localStorage.getItem('calendar_preferences');
           
+          console.log('[DataCache] Migrating localStorage data to server...');
           if (cachedTeamPrefs) {
             const prefs = JSON.parse(cachedTeamPrefs);
             setTeamPreferencesState(prefs);
@@ -312,7 +329,7 @@ export function DataCacheProvider({ children }: { children: ReactNode }) {
           }
         }
       } catch (error) {
-        console.error('Error loading preferences from server:', error);
+        console.error('[DataCache] Error loading preferences from server:', error);
         // Fallback to localStorage if server fails
         const cachedTeamPrefs = localStorage.getItem('team_preferences');
         const cachedAppearancePrefs = localStorage.getItem('appearance_preferences');
@@ -351,12 +368,23 @@ export function DataCacheProvider({ children }: { children: ReactNode }) {
     const newPrefs = typeof prefs === 'function' ? prefs(teamPreferences) : prefs;
     setTeamPreferencesState(newPrefs);
     // Save to server (universal across devices) - fire and forget
+    console.log('[DataCache] Saving team preferences to server:', newPrefs);
     fetch('/api/user-data', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ section: 'teamPreferences', data: newPrefs }),
-    }).catch((error) => {
-      console.error('Error saving team preferences:', error);
+    })
+    .then((response) => {
+      if (response.ok) {
+        console.log('[DataCache] Successfully saved team preferences to server');
+      } else {
+        console.error('[DataCache] Failed to save team preferences:', response.status);
+        // Fallback to localStorage
+        localStorage.setItem('team_preferences', JSON.stringify(newPrefs));
+      }
+    })
+    .catch((error) => {
+      console.error('[DataCache] Error saving team preferences:', error);
       // Fallback to localStorage
       localStorage.setItem('team_preferences', JSON.stringify(newPrefs));
     });
@@ -374,12 +402,23 @@ export function DataCacheProvider({ children }: { children: ReactNode }) {
       }
     }
     // Save to server (universal across devices) - fire and forget
+    console.log('[DataCache] Saving appearance preferences to server:', newPrefs);
     fetch('/api/user-data', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ section: 'appearancePreferences', data: newPrefs }),
-    }).catch((error) => {
-      console.error('Error saving appearance preferences:', error);
+    })
+    .then((response) => {
+      if (response.ok) {
+        console.log('[DataCache] Successfully saved appearance preferences to server');
+      } else {
+        console.error('[DataCache] Failed to save appearance preferences:', response.status);
+        // Fallback to localStorage
+        localStorage.setItem('appearance_preferences', JSON.stringify(newPrefs));
+      }
+    })
+    .catch((error) => {
+      console.error('[DataCache] Error saving appearance preferences:', error);
       // Fallback to localStorage
       localStorage.setItem('appearance_preferences', JSON.stringify(newPrefs));
     });

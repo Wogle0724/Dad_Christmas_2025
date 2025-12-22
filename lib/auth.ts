@@ -37,39 +37,39 @@ export async function verifyPassword(password: string): Promise<boolean> {
 
 export function changePassword(currentPassword: string, newPassword: string): Promise<boolean> {
   return new Promise(async (resolve) => {
+    console.log('[Auth] Starting password change process...');
     const correctPassword = await getStoredPassword();
-    if (currentPassword === correctPassword) {
-      try {
-        // Try Supabase first
-        try {
-          await updatePasswordDb(newPassword);
-          resolve(true);
-          return;
-        } catch (dbError) {
-          console.error('Error updating password in database:', dbError);
-          // Fall through to API route
-        }
-        
-        // Fallback to API route (which will use JSON file if Supabase not configured)
-        const response = await fetch('/api/user-data', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            section: 'password',
-            data: newPassword,
-          }),
-        });
-        
-        if (response.ok) {
-          resolve(true);
-        } else {
-          resolve(false);
-        }
-      } catch (error) {
-        console.error('Error updating password:', error);
+    
+    if (currentPassword !== correctPassword) {
+      console.log('[Auth] Password change failed - current password incorrect');
+      resolve(false);
+      return;
+    }
+
+    console.log('[Auth] Current password verified - updating password via API...');
+    
+    try {
+      // Always use API route (which handles Supabase or JSON fallback)
+      const response = await fetch('/api/user-data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          section: 'password',
+          data: newPassword,
+        }),
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('[Auth] Password successfully updated via API');
+        resolve(true);
+      } else {
+        const errorText = await response.text();
+        console.error('[Auth] Password update failed - API returned error:', response.status, errorText);
         resolve(false);
       }
-    } else {
+    } catch (error) {
+      console.error('[Auth] Error updating password:', error);
       resolve(false);
     }
   });

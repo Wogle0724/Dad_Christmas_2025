@@ -16,9 +16,8 @@ export async function GET(request: NextRequest) {
     const sport = searchParams.get('sport') || 'baseball';
     const league = searchParams.get('league') || 'mlb';
     const teamId = searchParams.get('teamId');
-    const limit = searchParams.get('limit') || '100';
 
-    console.log(`[ESPN News API] Fetching news for sport=${sport}, league=${league}, teamId=${teamId}, limit=${limit}`);
+    console.log(`[ESPN News API] Fetching news for sport=${sport}, league=${league}, teamId=${teamId}`);
 
     // Get team info if teamId is provided (to filter articles)
     let teamInfo: any = null;
@@ -154,6 +153,33 @@ export async function GET(request: NextRequest) {
 
     // Helper function to check if article is about the team
     const isArticleAboutTeam = (article: any): boolean => {
+      if (!teamId) return false;
+      
+      // First, check the categories array for direct team matches (most accurate)
+      if (article.categories && Array.isArray(article.categories)) {
+        const teamMatch = article.categories.find((cat: any) => {
+          // Check if category is a team type and matches the teamId
+          if (cat.type === 'team' && cat.teamId) {
+            return cat.teamId.toString() === teamId.toString();
+          }
+          // Also check the uid format: "s:1~l:10~t:25" where t:25 is the teamId
+          if (cat.uid && cat.uid.includes(`~t:${teamId}`)) {
+            return true;
+          }
+          // Check nested team object
+          if (cat.team && cat.team.id) {
+            return cat.team.id.toString() === teamId.toString();
+          }
+          return false;
+        });
+        
+        if (teamMatch) {
+          console.log(`[ESPN News API] Article "${article.headline || article.title}" matched team via categories`);
+          return true;
+        }
+      }
+      
+      // Fallback: text-based matching if no teamId match found in categories
       if (teamSearchTerms.length === 0) return false;
       
       // Build comprehensive search text from all article fields
@@ -168,7 +194,7 @@ export async function GET(request: NextRequest) {
       
       // Check if any team search term appears in the article
       // Use word boundaries for better matching (avoid partial matches)
-      return teamSearchTerms.some(term => {
+      const textMatch = teamSearchTerms.some(term => {
         const lowerTerm = term.toLowerCase().trim();
         if (lowerTerm.length < 2) return false;
         
@@ -184,6 +210,12 @@ export async function GET(request: NextRequest) {
           return regex.test(searchText);
         }
       });
+      
+      if (textMatch) {
+        console.log(`[ESPN News API] Article "${article.headline || article.title}" matched team via text search`);
+      }
+      
+      return textMatch;
     };
 
     // Separate articles into team-related and other
