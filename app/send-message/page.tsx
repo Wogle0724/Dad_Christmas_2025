@@ -69,8 +69,8 @@ export default function SendMessagePage() {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center">
           <div className="text-6xl mb-4">✅</div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Message Sent!</h2>
-          <p className="text-gray-600 mb-6">Your message has been delivered.</p>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Message Sent!</h2>
+          <p className="text-gray-900 mb-6">Your message has been delivered.</p>
           <Link
             href="/"
             className="text-indigo-600 hover:text-indigo-700 font-semibold"
@@ -86,13 +86,13 @@ export default function SendMessagePage() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8">
         <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">Send a Message</h1>
-          <p className="text-gray-600">Leave a message for Dad</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Send a Message</h1>
+          <p className="text-gray-900">Leave a message for Dad</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="name" className="block text-sm font-medium text-gray-900 mb-2">
               Your Name
             </label>
             <input
@@ -100,14 +100,14 @@ export default function SendMessagePage() {
               id="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900"
               required
               maxLength={50}
             />
           </div>
 
           <div>
-            <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="message" className="block text-sm font-medium text-gray-900 mb-2">
               Message
             </label>
             <textarea
@@ -115,11 +115,11 @@ export default function SendMessagePage() {
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               rows={6}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none text-gray-900"
               required
               maxLength={500}
             />
-            <p className="text-xs text-gray-500 mt-1">{message.length}/500</p>
+            <p className="text-xs text-gray-900 mt-1">{message.length}/500</p>
           </div>
 
           <button

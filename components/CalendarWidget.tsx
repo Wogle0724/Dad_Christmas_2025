@@ -22,7 +22,16 @@ export default function CalendarWidget() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Reset loading state when preferences change
+    setLoading(true);
+    setError(null);
+    
     if (calendarPreferences.calendarIds.length > 0) {
+      console.log('[CalendarWidget] Preferences changed, fetching events...', {
+        calendarIds: calendarPreferences.calendarIds.length,
+        hasAccessToken: !!calendarPreferences.accessToken,
+        hasRefreshToken: !!calendarPreferences.refreshToken,
+      });
       fetchCalendarEvents();
       // Refresh every 5 minutes
       const interval = setInterval(fetchCalendarEvents, 5 * 60 * 1000);
@@ -31,7 +40,7 @@ export default function CalendarWidget() {
       setLoading(false);
       setError('No calendars configured. Add calendars in Settings → Calendar.');
     }
-  }, [calendarPreferences.calendarIds, calendarPreferences.accessToken]);
+  }, [calendarPreferences.calendarIds, calendarPreferences.accessToken, calendarPreferences.refreshToken]);
 
   const refreshAccessToken = async (refreshToken: string): Promise<string | null> => {
     try {
@@ -66,13 +75,23 @@ export default function CalendarWidget() {
       setLoading(true);
       setError(null);
       
+      console.log('[CalendarWidget] Fetching events...', {
+        calendarIds: calendarPreferences.calendarIds,
+        hasAccessToken: !!calendarPreferences.accessToken,
+        tokenExpiry: calendarPreferences.tokenExpiry,
+        currentTime: Date.now(),
+        isExpired: calendarPreferences.tokenExpiry ? Date.now() >= calendarPreferences.tokenExpiry : false,
+      });
+      
       let accessToken = calendarPreferences.accessToken;
       
       // Check if token is expired and refresh if needed
       if (accessToken && calendarPreferences.tokenExpiry && Date.now() >= calendarPreferences.tokenExpiry) {
+        console.log('[CalendarWidget] Token expired, refreshing...');
         if (calendarPreferences.refreshToken) {
           const newToken = await refreshAccessToken(calendarPreferences.refreshToken);
           if (newToken) {
+            console.log('[CalendarWidget] Token refreshed successfully');
             accessToken = newToken;
             // Update preferences with new token
             const newExpiry = Date.now() + (3600 * 1000); // 1 hour
@@ -82,11 +101,17 @@ export default function CalendarWidget() {
               tokenExpiry: newExpiry,
             });
           } else {
+            console.error('[CalendarWidget] Token refresh failed');
             // Refresh failed, user needs to reconnect
             setError('Session expired. Please reconnect your Google account in Settings → Calendar.');
             setLoading(false);
             return;
           }
+        } else {
+          console.error('[CalendarWidget] No refresh token available');
+          setError('Session expired. Please reconnect your Google account in Settings → Calendar.');
+          setLoading(false);
+          return;
         }
       }
       
@@ -95,7 +120,8 @@ export default function CalendarWidget() {
         ? `/api/google-calendar?calendarIds=${calendarIdsParam}&accessToken=${encodeURIComponent(accessToken)}`
         : `/api/google-calendar?calendarIds=${calendarIdsParam}`;
       
-      const response = await fetch(url);
+      console.log('[CalendarWidget] Fetching from:', url.replace(accessToken || '', 'TOKEN_HIDDEN'));
+      const response = await fetch(url, { cache: 'no-store' });
       
       if (!response.ok) {
         const data = await response.json();
@@ -121,13 +147,19 @@ export default function CalendarWidget() {
       }
 
       const data = await response.json();
-      setEvents(data.events || []);
+      const fetchedEvents = data.events || [];
+      console.log('[CalendarWidget] Fetched events:', fetchedEvents.length);
+      setEvents(fetchedEvents);
       
       if (data.errors && data.errors.length > 0) {
-        console.warn('Some calendars failed to load:', data.errors);
+        console.warn('[CalendarWidget] Some calendars failed to load:', data.errors);
+      }
+      
+      if (fetchedEvents.length === 0 && calendarPreferences.calendarIds.length > 0) {
+        console.warn('[CalendarWidget] No events found but calendars are configured');
       }
     } catch (err) {
-      console.error('Error fetching calendar:', err);
+      console.error('[CalendarWidget] Error fetching calendar:', err);
       setError(err instanceof Error ? err.message : 'Failed to load calendar');
     } finally {
       setLoading(false);
