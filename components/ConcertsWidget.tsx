@@ -76,26 +76,46 @@ export default function ConcertsWidget() {
           artistParams.append('keyword', artist);
           
           try {
-            const response = await fetch(`/api/ticketmaster?${artistParams.toString()}`);
+            const response = await fetch(`/api/ticketmaster?${artistParams.toString()}`, { cache: 'no-store' });
+            if (!response.ok) {
+              console.error(`[ConcertsWidget] Error fetching concerts for artist ${artist}: ${response.status} ${response.statusText}`);
+              continue;
+            }
             const data = await response.json();
+            if (data.error) {
+              console.error(`[ConcertsWidget] API error for artist ${artist}:`, data.error);
+              continue;
+            }
             if (data.events && data.events.length > 0) {
+              console.log(`[ConcertsWidget] Found ${data.events.length} concerts for artist ${artist}`);
               allEvents.push(...data.events);
+            } else {
+              console.log(`[ConcertsWidget] No concerts found for artist ${artist}`);
             }
           } catch (err) {
-            console.error(`Error fetching concerts for artist ${artist}:`, err);
+            console.error(`[ConcertsWidget] Error fetching concerts for artist ${artist}:`, err);
           }
         }
       }
       
       // Also fetch general concerts to fill in the rest
       try {
-        const response = await fetch(`/api/ticketmaster?${params.toString()}`);
-        const data = await response.json();
-        if (data.events && data.events.length > 0) {
-          allEvents.push(...data.events);
+        const response = await fetch(`/api/ticketmaster?${params.toString()}`, { cache: 'no-store' });
+        if (!response.ok) {
+          console.error(`[ConcertsWidget] Error fetching general concerts: ${response.status} ${response.statusText}`);
+        } else {
+          const data = await response.json();
+          if (data.error) {
+            console.error(`[ConcertsWidget] API error for general concerts:`, data.error);
+          } else if (data.events && data.events.length > 0) {
+            console.log(`[ConcertsWidget] Found ${data.events.length} general concerts`);
+            allEvents.push(...data.events);
+          } else {
+            console.log(`[ConcertsWidget] No general concerts found`);
+          }
         }
       } catch (err) {
-        console.error('Error fetching general concerts:', err);
+        console.error('[ConcertsWidget] Error fetching general concerts:', err);
       }
       
       if (allEvents.length === 0) {

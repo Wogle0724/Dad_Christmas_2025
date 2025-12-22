@@ -215,16 +215,7 @@ export default function CalendarWidget() {
                     <p className="font-medium">To get started:</p>
                     <ol className="list-decimal list-inside space-y-2 ml-2">
                       <li>Go to <strong>Settings → Calendar</strong></li>
-                      <li>Connect your Google account (for private calendars) or add calendar IDs</li>
-                      <li>Add your calendar IDs:
-                        <ul className="list-disc list-inside ml-4 mt-1 space-y-1 text-xs">
-                          <li>Go to <a href="https://calendar.google.com" target="_blank" rel="noopener noreferrer" className="text-indigo-600 dark:text-indigo-400 underline">Google Calendar</a></li>
-                          <li>Click the three dots (⋮) next to your calendar</li>
-                          <li>Select &quot;Settings and sharing&quot;</li>
-                          <li>Copy the &quot;Calendar ID&quot; from &quot;Integrate calendar&quot;</li>
-                        </ul>
-                      </li>
-                      <li>Paste the Calendar ID in Settings → Calendar</li>
+                      <li>Connect your Google account</li>
                     </ol>
                   </>
                 ) : hasNoOAuth ? (

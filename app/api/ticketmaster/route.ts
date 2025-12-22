@@ -36,16 +36,17 @@ export async function GET(request: NextRequest) {
     // Build URL with query parameters
     const baseUrl = 'https://app.ticketmaster.com/discovery/v2/events.json';
     
-    // Get current date in ISO format for filtering future events
+    // Get current date for filtering (we'll filter client-side to be safe)
     const now = new Date();
-    const startDateTime = now.toISOString();
     
     const params = new URLSearchParams({
       apikey: apiKey,
       size: size,
       sort: 'date,asc', // Sort by date, ascending (upcoming first)
-      startDateTime: startDateTime, // Only get events starting from now
     });
+    
+    // Note: startDateTime parameter can be unreliable with Ticketmaster API
+    // We'll filter past events client-side instead for better reliability
 
     // Add location parameters
     if (lat && lon) {
@@ -80,10 +81,12 @@ export async function GET(request: NextRequest) {
       headers: {
         'User-Agent': 'Mozilla/5.0 (compatible; DadDashboard/1.0)',
       },
+      cache: 'no-store',
     });
 
     if (!response.ok) {
-      console.error(`[Ticketmaster API] Error: ${response.status} ${response.statusText}`);
+      const errorText = await response.text();
+      console.error(`[Ticketmaster API] Error: ${response.status} ${response.statusText}`, errorText);
       return NextResponse.json(
         { error: `Ticketmaster API error: ${response.status}`, events: [] },
         { status: response.status }
@@ -96,7 +99,13 @@ export async function GET(request: NextRequest) {
       hasEmbedded: !!data._embedded,
       hasEvents: !!data._embedded?.events,
       eventCount: data._embedded?.events?.length || 0,
+      pageInfo: data.page,
     });
+    
+    // Check if API returned an error
+    if (data.errors) {
+      console.error(`[Ticketmaster API] API returned errors:`, data.errors);
+    }
 
     // Transform the data to a consistent format and filter out past events
     // Reuse the `now` variable declared earlier
