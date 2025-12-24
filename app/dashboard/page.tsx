@@ -91,25 +91,25 @@ function DashboardContent() {
 
   return (
     <div className="h-screen bg-gray-50 dark:bg-gray-900 flex flex-col overflow-hidden">
-      {/* Header */}
-      <header className="flex-shrink-0 bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      {/* Header - Sticky */}
+      <header className="sticky top-0 z-50 flex-shrink-0 bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-3 sm:py-4">
           <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-200">
+            <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-800 dark:text-gray-200 truncate">
               {appearancePreferences.dashboardName || 'Dad Dashboard'}
             </h1>
-            <div className="flex gap-2">
+            <div className="flex gap-1 sm:gap-2 flex-shrink-0">
               <button
                 onClick={() => setShowSettingsModal(true)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex items-center gap-2"
+                className="px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex items-center gap-1 sm:gap-2 touch-manipulation"
                 title="Settings"
               >
-                <Settings className="w-4 h-4" />
-                Settings
+                <Settings className="w-4 h-4 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Settings</span>
               </button>
               <button
                 onClick={handleLogout}
-                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                className="px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors touch-manipulation"
               >
                 Logout
               </button>
@@ -118,13 +118,13 @@ function DashboardContent() {
         </div>
       </header>
 
-      {/* Navigation Tabs */}
-      <div className="flex-shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <nav className="flex space-x-8">
+      {/* Navigation Tabs - Sticky */}
+      <div className="sticky top-[49px] sm:top-[57px] lg:top-[65px] z-40 flex-shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
+          <nav className="flex space-x-4 sm:space-x-8">
             <button
               onClick={() => setActiveTab('dashboard')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+              className={`py-3 sm:py-4 px-1 border-b-2 font-medium text-xs sm:text-sm touch-manipulation ${
                 activeTab === 'dashboard'
                   ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
                   : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
@@ -134,7 +134,7 @@ function DashboardContent() {
             </button>
             <button
               onClick={() => setActiveTab('messages')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm relative ${
+              className={`py-3 sm:py-4 px-1 border-b-2 font-medium text-xs sm:text-sm relative touch-manipulation ${
                 activeTab === 'messages'
                   ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
                   : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
@@ -142,7 +142,7 @@ function DashboardContent() {
             >
               Messages
               {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                <span className="absolute -top-0.5 sm:-top-1 -right-1 sm:-right-1 bg-red-500 text-white text-[10px] sm:text-xs font-bold rounded-full w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center">
                   {unreadCount > 9 ? '9+' : unreadCount}
                 </span>
               )}
@@ -153,11 +153,73 @@ function DashboardContent() {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-h-0 overflow-y-auto">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full flex flex-col">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8 w-full flex flex-col">
           {activeTab === 'dashboard' ? (
-            <div className="grid grid-cols-1 lg:grid-cols-10 gap-6 items-stretch">
-              {/* Left Side - Calendar and Notes (70%) */}
-              <div className="lg:col-span-7 flex flex-col h-full gap-6 min-h-0">
+            <div className="flex flex-col lg:grid lg:grid-cols-10 gap-4 sm:gap-6">
+              {/* Mobile: Stack all widgets vertically */}
+              <div className="flex flex-col gap-4 sm:gap-6 lg:hidden">
+                {(() => {
+                  const allWidgets: JSX.Element[] = [];
+                  
+                  // Add left panel widgets (calendar, notes)
+                  const leftPanelOrder = appearancePreferences.leftPanelOrder || ['calendar', 'notes'];
+                  leftPanelOrder.forEach((widgetId) => {
+                    if (widgetId === 'calendar' && appearancePreferences.showCalendar) {
+                      allWidgets.push(
+                        <div key="calendar" className="w-full">
+                          <CalendarWidget />
+                        </div>
+                      );
+                    } else if (widgetId === 'notes' && appearancePreferences.showNotes) {
+                      allWidgets.push(
+                        <div key="notes" className="w-full">
+                          <StickyNotes />
+                        </div>
+                      );
+                    }
+                  });
+
+                  // Add right panel widgets (weather, sports, concerts, motivation)
+                  const widgetOrder = appearancePreferences.widgetOrder || ['weather', 'sports', 'concerts', 'motivation'];
+                  widgetOrder.forEach((widgetId) => {
+                    switch (widgetId) {
+                      case 'weather':
+                        if (appearancePreferences.showWeather) {
+                          allWidgets.push(<WeatherWidget key="weather" />);
+                        }
+                        break;
+                      case 'sports':
+                        if (appearancePreferences.showSports) {
+                          allWidgets.push(<SportsWidget key="sports" />);
+                        }
+                        break;
+                      case 'concerts':
+                        if (appearancePreferences.showConcerts) {
+                          allWidgets.push(<ConcertsWidget key="concerts" />);
+                        }
+                        break;
+                      case 'motivation':
+                        if (appearancePreferences.showMotivation) {
+                          allWidgets.push(<DailyMotivation key="motivation" />);
+                        }
+                        break;
+                    }
+                  });
+
+                  if (allWidgets.length === 0) {
+                    return (
+                      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-4 sm:p-6 text-center text-sm text-gray-500 dark:text-gray-400">
+                        Widgets are hidden. Enable them in Settings → Appearance.
+                      </div>
+                    );
+                  }
+
+                  return allWidgets;
+                })()}
+              </div>
+
+              {/* Desktop: Left Side - Calendar and Notes (70%) */}
+              <div className="hidden lg:flex lg:col-span-7 flex-col gap-6 min-h-0">
                 {(() => {
                   const leftPanelOrder = appearancePreferences.leftPanelOrder || ['calendar', 'notes'];
                   const widgets: JSX.Element[] = [];
@@ -193,8 +255,8 @@ function DashboardContent() {
                 })()}
               </div>
 
-              {/* Right Side - Widgets (30%) */}
-              <div className="lg:col-span-3 space-y-4 flex flex-col h-full">
+              {/* Desktop: Right Side - Widgets (30%) */}
+              <div className="hidden lg:flex lg:col-span-3 flex-col gap-4 h-full">
                 {(() => {
                   const widgetOrder = appearancePreferences.widgetOrder || ['weather', 'sports', 'concerts', 'motivation'];
                   const widgets: JSX.Element[] = [];

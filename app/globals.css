@@ -22,6 +22,33 @@ body {
   .text-balance {
     text-wrap: balance;
   }
+  
+  /* Mobile touch optimizations */
+  .touch-manipulation {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* Mobile-specific styles */
+@media (max-width: 640px) {
+  /* Ensure widgets don't overflow on mobile */
+  .widget-container {
+    min-height: auto;
+    max-height: none;
+  }
+  
+  /* Improve touch targets */
+  button, a {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Prevent text selection on buttons during touch */
+  button {
+    -webkit-user-select: none;
+    user-select: none;
+  }
 }
 
 /* Sticky note styles */

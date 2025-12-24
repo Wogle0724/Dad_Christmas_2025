@@ -93,7 +93,7 @@ export default function MessagesTab({ onMessagesChange }: MessagesTabProps) {
 
   if (loading) {
     return (
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 h-full flex flex-col">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-4 sm:p-6 h-full flex flex-col">
         <div className="animate-pulse">
           <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-4"></div>
           <div className="space-y-4">
@@ -108,7 +108,7 @@ export default function MessagesTab({ onMessagesChange }: MessagesTabProps) {
   const unreadCount = messages.filter((msg) => !msg.read).length;
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6">
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-4 sm:p-6">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
           <Mail className="w-6 h-6" />

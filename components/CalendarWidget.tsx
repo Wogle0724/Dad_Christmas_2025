@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Calendar as CalendarIcon, MapPin, Clock } from 'lucide-react';
+import { Calendar as CalendarIcon, MapPin, Clock, RefreshCw } from 'lucide-react';
 import { useDataCache } from '@/lib/DataCacheContext';
 
 interface CalendarEvent {
@@ -20,6 +20,7 @@ export default function CalendarWidget() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const refreshAccessToken = useCallback(async (refreshToken: string): Promise<string | null> => {
     try {
@@ -43,7 +44,7 @@ export default function CalendarWidget() {
     }
   }, []);
 
-  const fetchCalendarEvents = useCallback(async () => {
+  const fetchCalendarEvents = useCallback(async (isManualRefresh = false) => {
     if (calendarPreferences.calendarIds.length === 0) {
       setLoading(false);
       setError('No calendars configured');
@@ -51,7 +52,11 @@ export default function CalendarWidget() {
     }
 
     try {
-      setLoading(true);
+      if (isManualRefresh) {
+        setIsRefreshing(true);
+      } else {
+        setLoading(true);
+      }
       setError(null);
       
       console.log('[CalendarWidget] Fetching events...', {
@@ -142,8 +147,14 @@ export default function CalendarWidget() {
       setError(err instanceof Error ? err.message : 'Failed to load calendar');
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
   }, [calendarPreferences, setCalendarPreferences, refreshAccessToken]);
+
+  const handleReload = () => {
+    console.log('[CalendarWidget] Manual reload triggered');
+    fetchCalendarEvents(true);
+  };
 
   useEffect(() => {
     // Reset loading state when preferences change
@@ -209,10 +220,20 @@ export default function CalendarWidget() {
 
   if (loading) {
     return (
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 h-full flex flex-col min-h-[400px]">
-        <div className="flex items-center gap-3 mb-4 flex-shrink-0">
-          <CalendarIcon className="w-6 h-6 text-gray-600 dark:text-gray-400" />
-          <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">Calendar</h2>
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-4 sm:p-6 h-full flex flex-col min-h-[300px] sm:min-h-[400px]">
+        <div className="flex items-center justify-between mb-4 flex-shrink-0">
+          <div className="flex items-center gap-3">
+            <CalendarIcon className="w-6 h-6 text-gray-600 dark:text-gray-400" />
+            <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">Calendar</h2>
+          </div>
+          <button
+            onClick={handleReload}
+            disabled={true}
+            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Reload calendar events"
+          >
+            <RefreshCw className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+          </button>
         </div>
         <div className="flex-1 flex items-center justify-center min-h-[300px]">
           <div className="animate-pulse w-full max-w-md space-y-3">
@@ -230,10 +251,24 @@ export default function CalendarWidget() {
     const hasNoOAuth = !calendarPreferences.accessToken;
     
     return (
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 h-full flex flex-col min-h-[400px]">
-        <div className="flex items-center gap-3 mb-4 flex-shrink-0">
-          <CalendarIcon className="w-6 h-6 text-gray-600 dark:text-gray-400" />
-          <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">Calendar</h2>
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-4 sm:p-6 h-full flex flex-col min-h-[300px] sm:min-h-[400px]">
+        <div className="flex items-center justify-between mb-4 flex-shrink-0">
+          <div className="flex items-center gap-3">
+            <CalendarIcon className="w-6 h-6 text-gray-600 dark:text-gray-400" />
+            <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">Calendar</h2>
+          </div>
+          {!hasNoCalendars && (
+            <button
+              onClick={handleReload}
+              disabled={isRefreshing || loading}
+              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Reload calendar events"
+            >
+              <RefreshCw 
+                className={`w-5 h-5 text-gray-600 dark:text-gray-400 ${isRefreshing ? 'animate-spin' : ''}`}
+              />
+            </button>
+          )}
         </div>
         <div className="flex-1 flex items-center justify-center min-h-[300px]">
           <div className="text-center max-w-md space-y-4">
@@ -281,9 +316,21 @@ export default function CalendarWidget() {
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 h-full flex flex-col min-h-[400px]">
-      <div className="flex items-center gap-3 mb-4 flex-shrink-0">
-        <CalendarIcon className="w-6 h-6 text-gray-600 dark:text-gray-400" />
-        <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">Calendar</h2>
+      <div className="flex items-center justify-between mb-4 flex-shrink-0">
+        <div className="flex items-center gap-3">
+          <CalendarIcon className="w-6 h-6 text-gray-600 dark:text-gray-400" />
+          <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">Calendar</h2>
+        </div>
+        <button
+          onClick={handleReload}
+          disabled={isRefreshing || loading}
+          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Reload calendar events"
+        >
+          <RefreshCw 
+            className={`w-5 h-5 text-gray-600 dark:text-gray-400 ${isRefreshing ? 'animate-spin' : ''}`}
+          />
+        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto min-h-0">
