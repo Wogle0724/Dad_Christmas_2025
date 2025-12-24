@@ -33,6 +33,20 @@ export default function CalendarWidget() {
       });
 
       if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('[CalendarWidget] Token refresh failed:', response.status, errorData);
+        
+        // If refresh token is invalid (400 or 401), clear stored tokens
+        if (response.status === 400 || response.status === 401) {
+          console.log('[CalendarWidget] Refresh token is invalid, clearing stored tokens');
+          setCalendarPreferences({
+            ...calendarPreferences,
+            accessToken: undefined,
+            refreshToken: undefined,
+            tokenExpiry: undefined,
+          });
+        }
+        
         return null;
       }
 
@@ -42,7 +56,7 @@ export default function CalendarWidget() {
       console.error('[CalendarWidget] Error refreshing token:', err);
       return null;
     }
-  }, []);
+  }, [calendarPreferences, setCalendarPreferences]);
 
   const fetchCalendarEvents = useCallback(async (isManualRefresh = false) => {
     if (calendarPreferences.calendarIds.length === 0) {
@@ -133,14 +147,81 @@ export default function CalendarWidget() {
       const data = await response.json();
       const fetchedEvents = data.events || [];
       console.log('[CalendarWidget] Fetched events:', fetchedEvents.length);
-      setEvents(fetchedEvents);
       
+      // Check if we have 401 errors (authentication failures)
       if (data.errors && data.errors.length > 0) {
-        console.warn('[CalendarWidget] Some calendars failed to load:', data.errors);
+        const authErrors = data.errors.filter((err: any) => {
+          try {
+            const errorObj = typeof err.error === 'string' ? JSON.parse(err.error) : err.error;
+            return errorObj?.error?.code === 401 || errorObj?.error?.status === 'UNAUTHENTICATED';
+          } catch {
+            return err.error?.includes('401') || err.error?.includes('UNAUTHENTICATED');
+          }
+        });
+        
+        if (authErrors.length > 0 && accessToken && calendarPreferences.refreshToken) {
+          console.log('[CalendarWidget] Detected 401 errors, attempting token refresh...');
+          // Try to refresh the token
+          const newToken = await refreshAccessToken(calendarPreferences.refreshToken);
+          if (newToken) {
+            console.log('[CalendarWidget] Token refreshed, retrying calendar fetch...');
+            // Update preferences with new token
+            const newExpiry = Date.now() + (3600 * 1000); // 1 hour
+            setCalendarPreferences({
+              ...calendarPreferences,
+              accessToken: newToken,
+              tokenExpiry: newExpiry,
+            });
+            // Retry the fetch with new token
+            const retryUrl = `/api/google-calendar?calendarIds=${calendarIdsParam}&accessToken=${encodeURIComponent(newToken)}`;
+            const retryResponse = await fetch(retryUrl, { cache: 'no-store' });
+            if (retryResponse.ok) {
+              const retryData = await retryResponse.json();
+              const retryEvents = retryData.events || [];
+              console.log('[CalendarWidget] Successfully fetched events after token refresh:', retryEvents.length);
+              setEvents(retryEvents);
+              if (retryData.errors && retryData.errors.length > 0) {
+                console.warn('[CalendarWidget] Some calendars still failed after refresh:', retryData.errors);
+              }
+              setLoading(false);
+              setIsRefreshing(false);
+              return;
+            } else {
+              console.error('[CalendarWidget] Retry after token refresh failed');
+            }
+          } else {
+            console.error('[CalendarWidget] Token refresh failed - user needs to reconnect');
+            setError('Your Google account session has expired. Please reconnect in Settings → Calendar.');
+            setEvents([]);
+            setLoading(false);
+            setIsRefreshing(false);
+            return;
+          }
+        }
+        
+        // Log non-auth errors
+        const nonAuthErrors = data.errors.filter((err: any) => {
+          try {
+            const errorObj = typeof err.error === 'string' ? JSON.parse(err.error) : err.error;
+            return !(errorObj?.error?.code === 401 || errorObj?.error?.status === 'UNAUTHENTICATED');
+          } catch {
+            return !(err.error?.includes('401') || err.error?.includes('UNAUTHENTICATED'));
+          }
+        });
+        if (nonAuthErrors.length > 0) {
+          console.warn('[CalendarWidget] Some calendars failed to load (non-auth errors):', nonAuthErrors);
+        }
       }
       
+      setEvents(fetchedEvents);
+      
       if (fetchedEvents.length === 0 && calendarPreferences.calendarIds.length > 0) {
-        console.warn('[CalendarWidget] No events found but calendars are configured');
+        if (data.errors && data.errors.length > 0) {
+          // If we have errors, the error message should already be set
+          console.warn('[CalendarWidget] No events found and there were errors');
+        } else {
+          console.warn('[CalendarWidget] No events found but calendars are configured');
+        }
       }
     } catch (err) {
       console.error('[CalendarWidget] Error fetching calendar:', err);

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Lock, Trophy, Palette, Music, Calendar } from 'lucide-react';
+import { X, Lock, Trophy, Palette, Music, Calendar, ChevronDown } from 'lucide-react';
 import { verifyPassword, changePassword } from '@/lib/auth';
 import { useDataCache } from '@/lib/DataCacheContext';
 import SportsTeamSettingsContent from './SportsTeamSettingsContent';
@@ -18,7 +18,16 @@ type Tab = 'password' | 'sports' | 'appearance' | 'concerts' | 'calendar';
 
 export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [activeTab, setActiveTab] = useState<Tab>('password');
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const { teamPreferences, setTeamPreferences, setSports } = useDataCache();
+
+  const tabConfig: Record<Tab, { label: string; icon: typeof Calendar }> = {
+    calendar: { label: 'Calendar', icon: Calendar },
+    sports: { label: 'Sports Teams', icon: Trophy },
+    concerts: { label: 'Concerts', icon: Music },
+    appearance: { label: 'Appearance', icon: Palette },
+    password: { label: 'Password', icon: Lock },
+  };
 
   // Password reset state
   const [currentPassword, setCurrentPassword] = useState('');
@@ -94,83 +103,106 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
   if (!isOpen) return null;
 
+  const handleTabChange = (tab: Tab) => {
+    setActiveTab(tab);
+    setIsDropdownOpen(false);
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200">Settings</h2>
+        <div className="flex justify-between items-center p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-800 dark:text-gray-200">Settings</h2>
           <button
             onClick={onClose}
-            className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+            className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors touch-manipulation p-2 -mr-2"
           >
-            <X className="w-6 h-6" />
+            <X className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
         </div>
 
-        {/* Tabs */}
-        <div className="border-b border-gray-200 dark:border-gray-700 px-6">
+        {/* Mobile Dropdown */}
+        <div className="lg:hidden border-b border-gray-200 dark:border-gray-700 px-4 sm:px-6 py-3">
+          <div className="relative">
+            <button
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors touch-manipulation"
+            >
+              <div className="flex items-center gap-2">
+                {(() => {
+                  const Icon = tabConfig[activeTab].icon;
+                  return <Icon className="w-4 h-4" />;
+                })()}
+                <span className="font-medium text-gray-800 dark:text-gray-200">
+                  {tabConfig[activeTab].label}
+                </span>
+              </div>
+              <ChevronDown 
+                className={`w-4 h-4 text-gray-500 dark:text-gray-400 transition-transform ${
+                  isDropdownOpen ? 'rotate-180' : ''
+                }`}
+              />
+            </button>
+            
+            {isDropdownOpen && (
+              <>
+                <div 
+                  className="fixed inset-0 z-10" 
+                  onClick={() => setIsDropdownOpen(false)}
+                />
+                <div className="absolute z-20 w-full mt-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                  {(Object.keys(tabConfig) as Tab[]).map((tab) => {
+                    const Icon = tabConfig[tab].icon;
+                    return (
+                      <button
+                        key={tab}
+                        onClick={() => handleTabChange(tab)}
+                        className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors touch-manipulation ${
+                          activeTab === tab
+                            ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
+                            : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                        }`}
+                      >
+                        <Icon className="w-4 h-4" />
+                        <span className="font-medium">{tabConfig[tab].label}</span>
+                        {activeTab === tab && (
+                          <span className="ml-auto text-indigo-600 dark:text-indigo-400">✓</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Desktop Tabs */}
+        <div className="hidden lg:block border-b border-gray-200 dark:border-gray-700 px-6">
           <nav className="flex space-x-8">
-            <button
-              onClick={() => setActiveTab('calendar')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors ${
-                activeTab === 'calendar'
-                  ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
-                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
-              }`}
-            >
-              <Calendar className="w-4 h-4" />
-              Calendar
-            </button>
-            <button
-              onClick={() => setActiveTab('sports')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors ${
-                activeTab === 'sports'
-                  ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
-                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
-              }`}
-            >
-              <Trophy className="w-4 h-4" />
-              Sports Teams
-            </button>
-            <button
-              onClick={() => setActiveTab('concerts')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors ${
-                activeTab === 'concerts'
-                  ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
-                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
-              }`}
-            >
-              <Music className="w-4 h-4" />
-              Concerts
-            </button>
-            <button
-              onClick={() => setActiveTab('appearance')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors ${
-                activeTab === 'appearance'
-                  ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
-                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
-              }`}
-            >
-              <Palette className="w-4 h-4" />
-              Appearance
-            </button>
-            <button
-              onClick={() => setActiveTab('password')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors ${
-                activeTab === 'password'
-                  ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
-                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
-              }`}
-            >
-              <Lock className="w-4 h-4" />
-              Password
-            </button>
+            {(Object.keys(tabConfig) as Tab[]).map((tab) => {
+              const Icon = tabConfig[tab].icon;
+              return (
+                <button
+                  key={tab}
+                  onClick={() => handleTabChange(tab)}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors ${
+                    activeTab === tab
+                      ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
+                      : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  {tabConfig[tab].label}
+                </button>
+              );
+            })}
           </nav>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
           {activeTab === 'password' ? (
             <div className="max-w-md">
               {success ? (
